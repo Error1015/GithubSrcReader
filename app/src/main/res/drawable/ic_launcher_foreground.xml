@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 前景：白色 </> 符号，坐标与 design/icon/gen_icon.py 保持一致 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M40.08,35.44 L27.09,54 L40.08,72.56"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="8.86" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M57.83,72.56 L50.17,35.44"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="6.56" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M67.92,35.44 L80.91,54 L67.92,72.56"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="8.86" />
+</vector>
