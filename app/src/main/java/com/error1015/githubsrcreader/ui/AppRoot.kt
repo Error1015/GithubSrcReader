@@ -13,7 +13,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -60,6 +62,25 @@ fun AppRoot(viewModel: AppViewModel) {
     val openUsages: (String) -> Unit = { word ->
         viewModel.openUsages(word)
         navController.navigate(Routes.USAGES) { launchSingleTop = true }
+    }
+
+    // 切换底栏分区。
+    //
+    // 这里**故意不用** saveState / restoreState：四个分区是同一个图里的平级 destination，
+    // 而 Navigation 的 popUpTo(saveState = true) 会把被弹掉的浏览页状态挂到目标 destination
+    // （这里是起始页「首页」）的 id 下，下次带 restoreState 头回首页时又把它当成「首页的栈」
+    // 恢复上去 —— 表现就是点了首页还停在浏览页、首页和浏览页来回切不动，直到某些状态变化
+    // 让这张映射表被清掉才恢复。各页面状态本来就在 ViewModel 里（`_home` / `_browse`），
+    // 不需要靠这套机制存，去掉反而更稳。
+    val selectTab: (AppTab) -> Unit = { tab ->
+        // 慢网络下还没返回的「打开项目 / 链接」会发 OpenBrowser 把人拽回浏览页，先取消
+        viewModel.cancelPendingOpen()
+        // 不判断「已经在该分区」：route 只是渲染用的快照，靠它做守卫反而可能把切换卡死；
+        // popUpTo + launchSingleTop 本身已经是幂等的
+        navController.navigate(tab.route) {
+            popUpTo(navController.graph.findStartDestination().id)
+            launchSingleTop = true
+        }
     }
 
     LaunchedEffect(viewModel) {
@@ -191,6 +212,7 @@ fun AppRoot(viewModel: AppViewModel) {
                         // 文案来自全局文案表，重建一次让整棵树重新取词
                         (context as? Activity)?.recreate()
                     },
+                    onCodeThemeChange = viewModel::setCodeTheme,
                 )
             }
         }
@@ -199,7 +221,9 @@ fun AppRoot(viewModel: AppViewModel) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    // 底栏是悬浮的，必须压在页面内容之上（转场动画期间也一样）
+                    .zIndex(1f),
             ) {
                 AppBottomBar(
                     selected = when (route) {
@@ -208,13 +232,7 @@ fun AppRoot(viewModel: AppViewModel) {
                         Routes.SETTINGS -> AppTab.Settings
                         else -> AppTab.Home
                     },
-                    onSelect = { tab ->
-                        navController.navigate(tab.route) {
-                            popUpTo(Routes.HOME) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onSelect = selectTab,
                 )
             }
         }

@@ -13,6 +13,7 @@ import com.error1015.githubsrcreader.data.github.GitHubUrlParser
 import com.error1015.githubsrcreader.data.github.SharedLink
 import com.error1015.githubsrcreader.data.local.LocalCodeSource
 import com.error1015.githubsrcreader.data.model.CodeSource
+import com.error1015.githubsrcreader.data.model.CodeTheme
 import com.error1015.githubsrcreader.data.model.FileEntry
 import com.error1015.githubsrcreader.data.model.Loadable
 import com.error1015.githubsrcreader.data.model.Project
@@ -27,6 +28,7 @@ import com.error1015.githubsrcreader.i18n.AppLanguage
 import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.code.CodeTokenizer
 import com.error1015.githubsrcreader.ui.util.ExternalFiles
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -66,6 +68,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             language = prefs.language,
             showLineNumbers = prefs.showLineNumbers,
             themeMode = prefs.themeMode,
+            codeTheme = prefs.codeTheme,
         ),
     )
     val settings = _settings.asStateFlow()
@@ -74,6 +77,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val usage = _usage.asStateFlow()
 
     private var usageJob: Job? = null
+
+    /** 正在进行的「打开链接 / 项目」任务；用户切走分区时要能取消，否则它会把人拽回浏览页。 */
+    private var openJob: Job? = null
 
     private val _events = Channel<AppEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
@@ -104,7 +110,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         _home.update { it.copy(urlInput = text, busy = true, error = null) }
-        viewModelScope.launch {
+        openJob = viewModelScope.launch {
             try {
                 val info = api.repoInfo(parsed.owner, parsed.repo)
                 val (ref, path) = resolveTarget(parsed, info.defaultBranch)
@@ -136,6 +142,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     loadDirectory(path)
                     _events.send(AppEvent.OpenBrowser)
                 }
+            } catch (e: CancellationException) {
+                // 用户切走了分区：撤掉这次打开，别把转圈留在首页上
+                _home.update { it.copy(busy = false) }
+                throw e
             } catch (e: Exception) {
                 _home.update { it.copy(busy = false, error = e.friendlyMessage()) }
             }
@@ -198,6 +208,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 openLocalTree(uri, project.title)
             }
         }
+    }
+
+    /**
+     * 取消还在路上的打开动作。
+     *
+     * 慢网络下「点项目 → 等响应」这段窗口里，用户如果先切去了别的分区，响应回来时
+     * 原来的逻辑会直接 `OpenBrowser` 把人拽回浏览页 —— 表现就是「点了首页又跳回去了」。
+     */
+    fun cancelPendingOpen() {
+        openJob?.cancel()
+        openJob = null
     }
 
     /** 标星 / 取消标星：置顶显示，首页与项目页同步。 */
@@ -362,7 +383,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openLocalTree(uri: Uri, nameOverride: String? = null) {
         val context = getApplication<Application>()
-        viewModelScope.launch {
+        openJob = viewModelScope.launch {
             try {
                 runCatching {
                     context.contentResolver.takePersistableUriPermission(
@@ -388,6 +409,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _browse.value = BrowseUiState(source = source, path = "")
                 loadDirectory("")
                 _events.send(AppEvent.OpenBrowser)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _home.update { it.copy(error = e.friendlyMessage()) }
             }
@@ -670,6 +693,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setThemeMode(mode: ThemeMode) {
         prefs.themeMode = mode
         _settings.update { it.copy(themeMode = mode) }
+    }
+
+    /** 代码区配色：只影响阅读页的代码块，不需要重建 Activity。 */
+    fun setCodeTheme(theme: CodeTheme) {
+        prefs.codeTheme = theme
+        _settings.update { it.copy(codeTheme = theme) }
     }
 
     // ------------------------------------------------------------------ 内部

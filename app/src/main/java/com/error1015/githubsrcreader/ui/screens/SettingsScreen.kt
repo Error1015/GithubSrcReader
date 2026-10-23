@@ -1,6 +1,7 @@
 package com.error1015.githubsrcreader.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,12 +32,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.error1015.githubsrcreader.BuildConfig
 import com.error1015.githubsrcreader.R
+import com.error1015.githubsrcreader.data.model.CodeTheme
 import com.error1015.githubsrcreader.data.model.ThemeMode
 import com.error1015.githubsrcreader.i18n.AppLanguage
 import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.i18n.label
 import com.error1015.githubsrcreader.ui.SettingsUiState
 import com.error1015.githubsrcreader.ui.components.AppTitleHeader
+import com.error1015.githubsrcreader.ui.components.PopupAnchor
+import com.error1015.githubsrcreader.ui.components.PopupMenu
+import com.error1015.githubsrcreader.ui.components.PopupMenuItem
+import com.error1015.githubsrcreader.ui.components.anchorTo
+import com.error1015.githubsrcreader.ui.components.rememberAnchorHandle
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -56,6 +63,7 @@ fun SettingsScreen(
     onToggleLineNumbers: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
+    onCodeThemeChange: (CodeTheme) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
 
@@ -163,6 +171,8 @@ fun SettingsScreen(
                         onCheckedChange = onToggleLineNumbers,
                     )
                 }
+                HorizontalDivider(modifier = Modifier.padding(start = 18.dp))
+                CodeThemeRow(current = state.codeTheme, onSelect = onCodeThemeChange)
             }
 
             SmallTitle(Strings.settingsTokenSection)
@@ -260,6 +270,49 @@ fun SettingsScreen(
                 AboutRow(Strings.settingsAboutUi, "Miuix")
             }
         }
+    }
+}
+
+/**
+ * 代码配色选择：点整行贴着行弹出选项，当前方案直接显示在右侧。
+ * 改完立刻生效（只换代码块的颜色，不用重建 Activity）。
+ */
+@Composable
+private fun CodeThemeRow(current: CodeTheme, onSelect: (CodeTheme) -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    val handle = rememberAnchorHandle()
+    var anchor by remember { mutableStateOf<PopupAnchor?>(null) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .anchorTo(handle)
+            .clickable { anchor = handle.anchor }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = Strings.settingsCodeTheme, fontSize = 15.sp)
+            Text(
+                text = Strings.settingsCodeThemeDesc,
+                fontSize = 11.sp,
+                color = colors.onSurfaceVariantSummary,
+            )
+        }
+        Text(text = current.label, fontSize = 13.sp, color = colors.primary)
+    }
+
+    anchor?.let { position ->
+        PopupMenu(
+            anchor = position,
+            items = CodeTheme.entries.map { theme ->
+                PopupMenuItem(theme.label) {
+                    onSelect(theme)
+                    anchor = null
+                }
+            },
+            onDismiss = { anchor = null },
+        )
     }
 }
 

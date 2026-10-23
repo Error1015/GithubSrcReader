@@ -1,5 +1,6 @@
 package com.error1015.githubsrcreader.i18n
 
+import com.error1015.githubsrcreader.data.model.CodeTheme
 import com.error1015.githubsrcreader.data.model.ThemeMode
 import com.error1015.githubsrcreader.ui.UsageScope
 import com.error1015.githubsrcreader.ui.components.AppTab
@@ -11,6 +12,12 @@ val ThemeMode.label: String
         ThemeMode.SYSTEM -> Strings.themeSystem
         ThemeMode.LIGHT -> Strings.themeLight
         ThemeMode.DARK -> Strings.themeDark
+    }
+
+val CodeTheme.label: String
+    get() = when (this) {
+        CodeTheme.FOLLOW_APP -> Strings.codeThemeFollowApp
+        CodeTheme.ONE_DARK_PRO -> Strings.codeThemeOneDarkPro
     }
 
 val UsageScope.label: String

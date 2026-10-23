@@ -76,6 +76,10 @@ internal object K {
     const val settingsReading = "settingsReading"
     const val settingsShowLineNumbers = "settingsShowLineNumbers"
     const val settingsShowLineNumbersDesc = "settingsShowLineNumbersDesc"
+    const val settingsCodeTheme = "settingsCodeTheme"
+    const val settingsCodeThemeDesc = "settingsCodeThemeDesc"
+    const val codeThemeFollowApp = "codeThemeFollowApp"
+    const val codeThemeOneDarkPro = "codeThemeOneDarkPro"
     const val settingsTokenSection = "settingsTokenSection"
     const val settingsTokenDesc = "settingsTokenDesc"
     const val settingsTokenStatus = "settingsTokenStatus"
@@ -188,7 +192,8 @@ internal object K {
         usagesNotFoundDesc, usagesDeclaration, usagesReference, usagesScope,
         usagesScanned, usagesNotFound, usagesHitCount, usageScopeFile,
         usageScopeSource, settingsSubtitle, settingsAppearance, settingsLanguage,
-        settingsReading, settingsShowLineNumbers, settingsShowLineNumbersDesc, settingsTokenSection,
+        settingsReading, settingsShowLineNumbers, settingsShowLineNumbersDesc, settingsCodeTheme,
+        settingsCodeThemeDesc, codeThemeFollowApp, codeThemeOneDarkPro, settingsTokenSection,
         settingsTokenDesc, settingsTokenStatus, settingsTokenSaved, settingsTokenUnset,
         settingsTokenReplace, settingsTokenSecurity, settingsAbout, settingsAboutApp,
         settingsAboutVersion, settingsAboutUi, themeSystem, themeLight,

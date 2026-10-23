@@ -1,6 +1,7 @@
 package com.error1015.githubsrcreader.data
 
 import android.content.Context
+import com.error1015.githubsrcreader.data.model.CodeTheme
 import com.error1015.githubsrcreader.data.model.Project
 import com.error1015.githubsrcreader.data.model.ProjectGroup
 import com.error1015.githubsrcreader.data.model.ProjectLibrary
@@ -46,6 +47,11 @@ class AppPreferences(context: Context) {
             return ThemeMode.entries.firstOrNull { it.name == raw } ?: ThemeMode.SYSTEM
         }
         set(value) = prefs.edit().putString(KEY_THEME_MODE, value.name).apply()
+
+    /** 代码区配色（不影响界面其余部分）。 */
+    var codeTheme: CodeTheme
+        get() = CodeTheme.fromName(prefs.getString(KEY_CODE_THEME, null))
+        set(value) = prefs.edit().putString(KEY_CODE_THEME, value.name).apply()
 
     private fun readToken(): String {
         val cipherText = prefs.getString(KEY_TOKEN_CIPHER, null)
@@ -227,6 +233,7 @@ class AppPreferences(context: Context) {
         private const val KEY_RECENTS_LEGACY = KEY_RECENTS
         private const val KEY_LINE_NUMBERS = "line_numbers"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_CODE_THEME = "code_theme"
         private const val KEY_LANGUAGE = "language"
     }
 }

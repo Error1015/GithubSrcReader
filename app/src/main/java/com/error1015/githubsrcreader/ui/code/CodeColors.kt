@@ -69,6 +69,27 @@ data class CodeColors(
             lineNumber = Color(0xFF4C5058),
             rainbow = RainbowDark,
         )
+
+        /**
+         * One Dark Pro：Atom One Dark 的经典取值。
+         * 紫（关键字）/ 绿（字符串）/ 橙（数字）/ 蓝（函数）/ 黄（类型）/ 红（变量）/ 青（meta），
+         * 原文里注释与斜体区分，这里只保留颜色（行内没法稳定做斜体）。
+         */
+        val OneDarkPro = CodeColors(
+            background = Color(0xFF282C34),
+            plain = Color(0xFFABB2BF),
+            keyword = Color(0xFFC678DD),
+            string = Color(0xFF98C379),
+            comment = Color(0xFF5C6370),
+            number = Color(0xFFD19A66),
+            function = Color(0xFF61AFEF),
+            type = Color(0xFFE5C07B),
+            meta = Color(0xFF56B6C2),
+            property = Color(0xFFE06C75),
+            lineNumber = Color(0xFF4B5263),
+            // One Dark 的括号配对色本身就是这套，直接沿用
+            rainbow = RainbowDark,
+        )
     }
 }
 

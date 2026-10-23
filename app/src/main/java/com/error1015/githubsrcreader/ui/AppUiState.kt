@@ -2,6 +2,7 @@ package com.error1015.githubsrcreader.ui
 
 import android.net.Uri
 import com.error1015.githubsrcreader.data.model.CodeSource
+import com.error1015.githubsrcreader.data.model.CodeTheme
 import com.error1015.githubsrcreader.data.model.FileContent
 import com.error1015.githubsrcreader.data.model.FileEntry
 import com.error1015.githubsrcreader.data.model.Loadable
@@ -62,6 +63,7 @@ data class SettingsUiState(
     val hasToken: Boolean = false,
     val showLineNumbers: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val codeTheme: CodeTheme = CodeTheme.FOLLOW_APP,
     val language: AppLanguage = AppLanguage.SYSTEM,
     val saved: Boolean = false,
     val message: String? = null,

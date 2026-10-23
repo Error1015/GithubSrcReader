@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            GithubSrcReaderTheme(darkTheme = darkTheme) {
+            GithubSrcReaderTheme(darkTheme = darkTheme, codeTheme = settings.codeTheme) {
                 AppRoot(viewModel)
             }
         }
