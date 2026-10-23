@@ -51,18 +51,3 @@ interface CodeSource {
 
 /** 数据层可预期的错误，直接用于界面提示。 */
 class SourceException(message: String, cause: Throwable? = null) : Exception(message, cause)
-
-/** 最近打开的来源记录，用于首页列表与持久化。 */
-data class RecentSource(
-    val id: String,
-    val type: Type,
-    val title: String,
-    val subtitle: String,
-    val owner: String? = null,
-    val repo: String? = null,
-    val ref: String? = null,
-    val treeUri: String? = null,
-    val openedAt: Long = 0L,
-) {
-    enum class Type { GITHUB, LOCAL }
-}

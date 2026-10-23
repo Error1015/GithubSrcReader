@@ -22,6 +22,7 @@ val UsageScope.label: String
 val AppTab.label: String
     get() = when (this) {
         AppTab.Home -> Strings.tabHome
+        AppTab.Projects -> Strings.tabProjects
         AppTab.Browse -> Strings.tabBrowse
         AppTab.Settings -> Strings.tabSettings
     }

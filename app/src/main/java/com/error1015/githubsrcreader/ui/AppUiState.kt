@@ -5,7 +5,9 @@ import com.error1015.githubsrcreader.data.model.CodeSource
 import com.error1015.githubsrcreader.data.model.FileContent
 import com.error1015.githubsrcreader.data.model.FileEntry
 import com.error1015.githubsrcreader.data.model.Loadable
-import com.error1015.githubsrcreader.data.model.RecentSource
+import com.error1015.githubsrcreader.data.model.Project
+import com.error1015.githubsrcreader.data.model.ProjectGroup
+import com.error1015.githubsrcreader.data.model.ProjectSection
 import com.error1015.githubsrcreader.data.model.RepoInfo
 import com.error1015.githubsrcreader.data.model.ThemeMode
 import com.error1015.githubsrcreader.i18n.AppLanguage
@@ -16,8 +18,21 @@ data class HomeUiState(
     val urlInput: String = "",
     val error: String? = null,
     val busy: Boolean = false,
-    val recents: List<RecentSource> = emptyList(),
+    /** 最近打开：星标置顶，其余按打开时间。 */
+    val recents: List<Project> = emptyList(),
+    /** 供「加入项目库」时选择分组。 */
+    val groups: List<ProjectGroup> = emptyList(),
 )
+
+/** 项目页：分组 + 未分组，组内星标置顶。 */
+data class ProjectsUiState(
+    val sections: List<ProjectSection> = emptyList(),
+    val groups: List<ProjectGroup> = emptyList(),
+) {
+    val total: Int get() = sections.sumOf { it.projects.size }
+    val isEmpty: Boolean get() = total == 0
+}
+
 
 data class BrowseUiState(
     val source: CodeSource? = null,

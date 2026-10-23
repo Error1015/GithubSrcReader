@@ -24,6 +24,7 @@ import com.error1015.githubsrcreader.i18n.AppLanguage
 import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.screens.BrowseScreen
 import com.error1015.githubsrcreader.ui.screens.HomeScreen
+import com.error1015.githubsrcreader.ui.screens.ProjectsScreen
 import com.error1015.githubsrcreader.ui.screens.SettingsScreen
 import com.error1015.githubsrcreader.ui.screens.UsagesScreen
 import com.error1015.githubsrcreader.ui.screens.ViewerScreen
@@ -33,6 +34,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 object Routes {
     const val HOME = "home"
+    const val PROJECTS = "projects"
     const val BROWSE = "browse"
     const val VIEWER = "viewer"
     const val USAGES = "usages"
@@ -50,6 +52,7 @@ fun AppRoot(viewModel: AppViewModel) {
     val viewer by viewModel.viewer.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val usage by viewModel.usage.collectAsStateWithLifecycle()
+    val projects by viewModel.projects.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
@@ -98,8 +101,25 @@ fun AppRoot(viewModel: AppViewModel) {
                     onUrlChange = viewModel::onUrlChange,
                     onSubmit = viewModel::submitUrl,
                     onFolderPicked = { uri -> viewModel.openLocalTree(uri) },
-                    onOpenRecent = viewModel::openRecent,
-                    onRemoveRecent = viewModel::removeRecent,
+                    onOpenProject = viewModel::openProject,
+                    onToggleStar = viewModel::toggleProjectStar,
+                    onRemoveProject = viewModel::removeProject,
+                    onSaveToLibrary = viewModel::saveProjectToLibrary,
+                    onRemoveFromLibrary = viewModel::removeProjectFromLibrary,
+                )
+            }
+            composable(Routes.PROJECTS) {
+                ProjectsScreen(
+                    state = projects,
+                    onAddByLink = viewModel::addProjectByLink,
+                    onAddByFolder = viewModel::addProjectByFolder,
+                    onOpenProject = viewModel::openProject,
+                    onToggleStar = viewModel::toggleProjectStar,
+                    onCreateGroup = viewModel::createGroup,
+                    onRenameGroup = viewModel::renameGroup,
+                    onDeleteGroup = viewModel::deleteGroup,
+                    onMoveProject = viewModel::moveProject,
+                    onRemoveProject = viewModel::removeProjectFromLibrary,
                 )
             }
             composable(Routes.BROWSE) {
@@ -183,6 +203,7 @@ fun AppRoot(viewModel: AppViewModel) {
             ) {
                 AppBottomBar(
                     selected = when (route) {
+                        Routes.PROJECTS -> AppTab.Projects
                         Routes.BROWSE -> AppTab.Browse
                         Routes.SETTINGS -> AppTab.Settings
                         else -> AppTab.Home

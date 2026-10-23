@@ -1,14 +1,16 @@
 package com.error1015.githubsrcreader.data
 
 import android.content.Context
-import com.error1015.githubsrcreader.data.model.RecentSource
+import com.error1015.githubsrcreader.data.model.Project
+import com.error1015.githubsrcreader.data.model.ProjectGroup
+import com.error1015.githubsrcreader.data.model.ProjectLibrary
 import com.error1015.githubsrcreader.data.model.ThemeMode
 import com.error1015.githubsrcreader.i18n.AppLanguage
 import com.error1015.githubsrcreader.data.security.SecretVault
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 本地轻量持久化：Token（Keystore 加密）、显示偏好、最近打开记录。 */
+/** 本地轻量持久化：Token（Keystore 加密）、显示偏好、项目库与分组。 */
 class AppPreferences(context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -76,37 +78,94 @@ class AppPreferences(context: Context) {
         tokenCache = trimmed
     }
 
-    fun recentSources(): List<RecentSource> {
-        val raw = prefs.getString(KEY_RECENTS, null) ?: return emptyList()
+    fun projects(): List<Project> {
+        val raw = prefs.getString(KEY_PROJECTS, null) ?: return migrateLegacyRecents()
+        return parseProjects(raw)
+    }
+
+    /** 读-改-写：项目库的所有变更都走这里，保证落盘结果与返回的列表一致。 */
+    fun updateProjects(transform: (List<Project>) -> List<Project>): List<Project> {
+        val updated = transform(projects())
+        saveProjects(updated)
+        return updated
+    }
+
+    fun groups(): List<ProjectGroup> {
+        val raw = prefs.getString(KEY_GROUPS, null) ?: return emptyList()
         return runCatching {
             val array = JSONArray(raw)
             (0 until array.length()).mapNotNull { index ->
-                array.optJSONObject(index)?.let(::toRecent)
+                array.optJSONObject(index)?.let(::toGroup)
             }
         }.getOrDefault(emptyList())
     }
 
-    fun addRecent(source: RecentSource) {
-        val updated = (listOf(source) + recentSources().filterNot { it.id == source.id })
-            .take(MAX_RECENTS)
-        saveRecents(updated)
-    }
-
-    fun removeRecent(id: String) {
-        saveRecents(recentSources().filterNot { it.id == id })
-    }
-
-    private fun saveRecents(list: List<RecentSource>) {
+    fun updateGroups(transform: (List<ProjectGroup>) -> List<ProjectGroup>): List<ProjectGroup> {
+        val updated = transform(groups())
         val array = JSONArray()
-        list.forEach { array.put(fromRecent(it)) }
-        prefs.edit().putString(KEY_RECENTS, array.toString()).apply()
+        updated.forEach { array.put(fromGroup(it)) }
+        prefs.edit().putString(KEY_GROUPS, array.toString()).apply()
+        return updated
     }
 
-    private fun toRecent(json: JSONObject): RecentSource? {
+    /** 删除分组：组内项目归到未分组，项目本身不删除。 */
+    fun deleteGroup(groupId: String) {
+        updateGroups { list -> list.filterNot { it.id == groupId } }
+        updateProjects { ProjectLibrary.clearGroup(it, groupId) }
+    }
+
+    /**
+     * 旧版本只存了「最近打开」（键 `recents`），这里一次性迁移成项目库。
+     * 迁移后删掉旧键，避免重复处理。
+     */
+    private fun migrateLegacyRecents(): List<Project> {
+        val raw = prefs.getString(KEY_RECENTS_LEGACY, null) ?: return emptyList()
+        val migrated = runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { index ->
+                val json = array.optJSONObject(index) ?: return@mapNotNull null
+                val id = json.optString("id")
+                val type = runCatching { Project.Type.valueOf(json.optString("type")) }.getOrNull()
+                val openedAt = json.optLong("openedAt")
+                if (id.isBlank() || type == null) null else Project(
+                    id = id,
+                    type = type,
+                    title = json.optString("title"),
+                    subtitle = json.optString("subtitle"),
+                    owner = json.optString("owner").ifBlank { null },
+                    repo = json.optString("repo").ifBlank { null },
+                    ref = json.optString("ref").ifBlank { null },
+                    treeUri = json.optString("treeUri").ifBlank { null },
+                    // 旧版本没有 saved 字段，那时的条目都出现在项目页，迁移过来继续保留
+                    saved = true,
+                    openedAt = openedAt,
+                    addedAt = openedAt,
+                )
+            }
+        }.getOrDefault(emptyList())
+        prefs.edit().remove(KEY_RECENTS_LEGACY).apply()
+        if (migrated.isNotEmpty()) saveProjects(migrated)
+        return migrated
+    }
+
+    private fun saveProjects(list: List<Project>) {
+        val array = JSONArray()
+        list.forEach { array.put(fromProject(it)) }
+        prefs.edit().putString(KEY_PROJECTS, array.toString()).apply()
+    }
+
+    private fun parseProjects(raw: String): List<Project> = runCatching {
+        val array = JSONArray(raw)
+        (0 until array.length()).mapNotNull { index ->
+            array.optJSONObject(index)?.let(::toProject)
+        }
+    }.getOrDefault(emptyList())
+
+    private fun toProject(json: JSONObject): Project? {
         val id = json.optString("id")
         if (id.isBlank()) return null
-        val type = runCatching { RecentSource.Type.valueOf(json.optString("type")) }.getOrNull() ?: return null
-        return RecentSource(
+        val type = runCatching { Project.Type.valueOf(json.optString("type")) }.getOrNull() ?: return null
+        return Project(
             id = id,
             type = type,
             title = json.optString("title"),
@@ -115,20 +174,43 @@ class AppPreferences(context: Context) {
             repo = json.optString("repo").ifBlank { null },
             ref = json.optString("ref").ifBlank { null },
             treeUri = json.optString("treeUri").ifBlank { null },
+            // 没有 saved 字段 = 旧版本数据，那时项目页展示全部条目，按「已入库」处理，避免升级后清空
+            saved = if (json.has("saved")) json.optBoolean("saved") else true,
+            groupId = json.optString("groupId").ifBlank { null },
+            starred = json.optBoolean("starred", false),
             openedAt = json.optLong("openedAt"),
+            addedAt = json.optLong("addedAt"),
         )
     }
 
-    private fun fromRecent(source: RecentSource): JSONObject = JSONObject().apply {
-        put("id", source.id)
-        put("type", source.type.name)
-        put("title", source.title)
-        put("subtitle", source.subtitle)
-        put("owner", source.owner.orEmpty())
-        put("repo", source.repo.orEmpty())
-        put("ref", source.ref.orEmpty())
-        put("treeUri", source.treeUri.orEmpty())
-        put("openedAt", source.openedAt)
+    private fun fromProject(project: Project): JSONObject = JSONObject().apply {
+        put("id", project.id)
+        put("type", project.type.name)
+        put("title", project.title)
+        put("subtitle", project.subtitle)
+        put("owner", project.owner.orEmpty())
+        put("repo", project.repo.orEmpty())
+        put("ref", project.ref.orEmpty())
+        put("treeUri", project.treeUri.orEmpty())
+        put("saved", project.saved)
+        put("groupId", project.groupId.orEmpty())
+        put("starred", project.starred)
+        put("openedAt", project.openedAt)
+        put("addedAt", project.addedAt)
+    }
+
+    private fun toGroup(json: JSONObject): ProjectGroup? {
+        val id = json.optString("id")
+        if (id.isBlank()) return null
+        val name = json.optString("name").trim()
+        if (name.isEmpty()) return null
+        return ProjectGroup(id = id, name = name, createdAt = json.optLong("createdAt"))
+    }
+
+    private fun fromGroup(group: ProjectGroup): JSONObject = JSONObject().apply {
+        put("id", group.id)
+        put("name", group.name)
+        put("createdAt", group.createdAt)
     }
 
     companion object {
@@ -138,9 +220,13 @@ class AppPreferences(context: Context) {
         /** Keystore 加密后的密文键。 */
         private const val KEY_TOKEN_CIPHER = "token_cipher"
         private const val KEY_RECENTS = "recents"
+        /** 项目库（取代旧的「最近打开」）。 */
+        private const val KEY_PROJECTS = "projects"
+        private const val KEY_GROUPS = "groups"
+        /** 旧版本键名，仅用于迁移。 */
+        private const val KEY_RECENTS_LEGACY = KEY_RECENTS
         private const val KEY_LINE_NUMBERS = "line_numbers"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_LANGUAGE = "language"
-        private const val MAX_RECENTS = 12
     }
 }

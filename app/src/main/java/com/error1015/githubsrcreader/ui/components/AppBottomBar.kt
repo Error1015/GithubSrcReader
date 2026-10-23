@@ -28,13 +28,15 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Folder
 import top.yukonga.miuix.kmp.icon.extended.Home
+import top.yukonga.miuix.kmp.icon.extended.ListView
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 底部导航的三个分区（显示名称见 `i18n/Labels.kt`）。 */
+/** 底部导航的四个分区（显示名称见 `i18n/Labels.kt`）。 */
 enum class AppTab(val route: String, val icon: ImageVector) {
     Home("home", MiuixIcons.Home),
+    Projects("projects", MiuixIcons.ListView),
     Browse("browse", MiuixIcons.Folder),
     Settings("settings", MiuixIcons.Settings),
 }
@@ -92,7 +94,8 @@ fun AppBottomBar(
                             interactionSource = interactionSource,
                             indication = null,
                         ) { onSelect(tab) }
-                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                        // 四个分区时只给选中项展开文字，英文下也放得下
+                        .padding(horizontal = if (isSelected) 14.dp else 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -101,13 +104,15 @@ fun AppBottomBar(
                         tint = tint,
                         modifier = Modifier.size(22.dp),
                     )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = tab.label,
-                        color = tint,
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                    )
+                    if (isSelected) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = tab.label,
+                            color = tint,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
             }
         }

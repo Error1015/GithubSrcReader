@@ -129,6 +129,45 @@ internal object K {
     const val downloadCreateFailed = "downloadCreateFailed"
     const val downloadWriteFailed = "downloadWriteFailed"
     const val downloadFailed = "downloadFailed"
+    const val actionStar = "actionStar"
+    const val actionUnstar = "actionUnstar"
+    const val actionRename = "actionRename"
+    const val actionDelete = "actionDelete"
+    const val actionRemove = "actionRemove"
+    const val actionCancel = "actionCancel"
+    const val actionConfirm = "actionConfirm"
+    const val actionCreate = "actionCreate"
+    const val tabProjects = "tabProjects"
+    const val projectsSubtitle = "projectsSubtitle"
+    const val projectsAdd = "projectsAdd"
+    const val projectsAddByLink = "projectsAddByLink"
+    const val projectsAddFromFolder = "projectsAddFromFolder"
+    const val projectsAddLinkLabel = "projectsAddLinkLabel"
+    const val projectsNewGroup = "projectsNewGroup"
+    const val projectsGroupName = "projectsGroupName"
+    const val projectsUngrouped = "projectsUngrouped"
+    const val projectsEmptyTitle = "projectsEmptyTitle"
+    const val projectsEmptyDesc = "projectsEmptyDesc"
+    const val projectsGroupEmpty = "projectsGroupEmpty"
+    const val projectsCount = "projectsCount"
+    const val projectsMoveTo = "projectsMoveTo"
+    const val projectsGroupCreated = "projectsGroupCreated"
+    const val projectsGroupRenamed = "projectsGroupRenamed"
+    const val projectsGroupDeleted = "projectsGroupDeleted"
+    const val projectsAdded = "projectsAdded"
+    const val projectsMoved = "projectsMoved"
+    const val projectsRemoved = "projectsRemoved"
+    const val dialogDeleteGroupTitle = "dialogDeleteGroupTitle"
+    const val dialogDeleteGroupMessage = "dialogDeleteGroupMessage"
+    const val dialogRemoveProjectTitle = "dialogRemoveProjectTitle"
+    const val dialogRemoveProjectMessage = "dialogRemoveProjectMessage"
+
+    const val actionMore = "actionMore"
+
+    const val actionRemoveFromLibrary = "actionRemoveFromLibrary"
+    const val projectsAddToLibrary = "projectsAddToLibrary"
+
+    const val projectsParsing = "projectsParsing"
 
     /** 所有键，供测试校验各语言表是否齐全。 */
     val allKeys: List<String> = listOf(
@@ -163,5 +202,17 @@ internal object K {
         apiErrorShort, errorFolderPermission, errorNotFolder, errorUnnamed,
         errorFileMissing, errorIsFolder, errorBinaryFile, hintNoCrossFileSearch,
         hintSearchNeedsToken, downloadCreateFailed, downloadWriteFailed, downloadFailed,
+        actionStar, actionUnstar, actionRename, actionDelete,
+        actionRemove, actionCancel, actionConfirm, actionCreate,
+        tabProjects, projectsSubtitle, projectsAdd, projectsAddByLink,
+        projectsAddFromFolder, projectsAddLinkLabel, projectsNewGroup, projectsGroupName,
+        projectsUngrouped, projectsEmptyTitle, projectsEmptyDesc, projectsGroupEmpty,
+        projectsCount, projectsMoveTo, projectsGroupCreated, projectsGroupRenamed,
+        projectsGroupDeleted, projectsAdded, projectsMoved, projectsRemoved,
+        dialogDeleteGroupTitle, dialogDeleteGroupMessage, dialogRemoveProjectTitle, dialogRemoveProjectMessage,
+        actionMore,
+        actionRemoveFromLibrary,
+        projectsAddToLibrary,
+        projectsParsing,
     )
 }

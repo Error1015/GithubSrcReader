@@ -15,7 +15,9 @@ import com.error1015.githubsrcreader.data.local.LocalCodeSource
 import com.error1015.githubsrcreader.data.model.CodeSource
 import com.error1015.githubsrcreader.data.model.FileEntry
 import com.error1015.githubsrcreader.data.model.Loadable
-import com.error1015.githubsrcreader.data.model.RecentSource
+import com.error1015.githubsrcreader.data.model.Project
+import com.error1015.githubsrcreader.data.model.ProjectGroup
+import com.error1015.githubsrcreader.data.model.ProjectLibrary
 import com.error1015.githubsrcreader.data.model.SourceException
 import com.error1015.githubsrcreader.data.model.Language
 import com.error1015.githubsrcreader.data.model.ThemeMode
@@ -37,6 +39,7 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.UUID
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -45,8 +48,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private var currentSource: CodeSource? = null
 
-    private val _home = MutableStateFlow(HomeUiState(recents = prefs.recentSources()))
+    private val _home = MutableStateFlow(HomeUiState(recents = ProjectLibrary.recents(prefs.projects())))
     val home = _home.asStateFlow()
+
+    private val _projects = MutableStateFlow(ProjectsUiState())
+    val projects = _projects.asStateFlow()
 
     private val _browse = MutableStateFlow(BrowseUiState())
     val browse = _browse.asStateFlow()
@@ -71,6 +77,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _events = Channel<AppEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
+
+    init {
+        // 项目库启动即读一次，首页与项目页共用同一份数据
+        refreshLibrary()
+    }
 
     // ------------------------------------------------------------------ 首页
 
@@ -100,10 +111,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val source = GitHubCodeSource(api, parsed.owner, parsed.repo, ref)
                 currentSource = source
 
-                prefs.addRecent(
-                    RecentSource(
+                addToLibrary(
+                    Project(
                         id = "github:${parsed.owner}/${parsed.repo}".lowercase(),
-                        type = RecentSource.Type.GITHUB,
+                        type = Project.Type.GITHUB,
                         title = parsed.repo,
                         subtitle = "${parsed.owner}/${parsed.repo} · $ref",
                         owner = parsed.owner,
@@ -112,7 +123,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         openedAt = System.currentTimeMillis(),
                     ),
                 )
-                _home.update { it.copy(busy = false, error = null, recents = prefs.recentSources()) }
+                _home.update { it.copy(busy = false, error = null) }
 
                 if (parsed.pointsToFile && path.isNotBlank()) {
                     val parent = path.substringBeforeLast('/', "")
@@ -147,32 +158,206 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         openUrl(link)
     }
 
-    fun openRecent(recent: RecentSource) {
-        when (recent.type) {
-            RecentSource.Type.GITHUB -> {
-                val owner = recent.owner
-                val repo = recent.repo
+    // ------------------------------------------------------------------ 项目库
+
+    /** 打开或添加时写库，并立刻刷新首页与项目页（两处共用同一份数据）。 */
+    private fun addToLibrary(project: Project) {
+        prefs.updateProjects { ProjectLibrary.upsert(it, project) }
+        refreshLibrary()
+    }
+
+    private fun refreshLibrary() {
+        val all = prefs.projects()
+        val groups = prefs.groups()
+        _home.update { it.copy(recents = ProjectLibrary.recents(all), groups = groups) }
+        _projects.value = ProjectsUiState(
+            sections = ProjectLibrary.sections(ProjectLibrary.library(all), groups),
+            groups = groups,
+        )
+    }
+
+    /** 打开项目库里的条目：GitHub 走链接解析，本地文件夹走 SAF。 */
+    fun openProject(project: Project) {
+        when (project.type) {
+            Project.Type.GITHUB -> {
+                val owner = project.owner
+                val repo = project.repo
                 if (owner.isNullOrBlank() || repo.isNullOrBlank()) {
-                    _home.update { it.copy(error = Strings.errorRecentInvalid) }
+                    message(Strings.errorRecentInvalid)
                     return
                 }
                 openUrl("https://github.com/$owner/$repo")
             }
 
-            RecentSource.Type.LOCAL -> {
-                val uri = recent.treeUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
+            Project.Type.LOCAL -> {
+                val uri = project.treeUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
                 if (uri == null) {
-                    _home.update { it.copy(error = Strings.errorFolderInvalid) }
+                    message(Strings.errorFolderInvalid)
                     return
                 }
-                openLocalTree(uri, recent.title)
+                openLocalTree(uri, project.title)
             }
         }
     }
 
-    fun removeRecent(id: String) {
-        prefs.removeRecent(id)
-        _home.update { it.copy(recents = prefs.recentSources()) }
+    /** 标星 / 取消标星：置顶显示，首页与项目页同步。 */
+    fun toggleProjectStar(id: String) {
+        prefs.updateProjects { ProjectLibrary.toggleStar(it, id) }
+        refreshLibrary()
+    }
+
+    /** 首页删除：连历史记录一起删掉。 */
+    fun removeProject(id: String) {
+        prefs.updateProjects { ProjectLibrary.without(it, id) }
+        refreshLibrary()
+        message(Strings.projectsRemoved)
+    }
+
+    /**
+     * 首页把「最近打开」加入项目库；已加入时相当于换分组。
+     * 判断放在更新前，因为 updateProjects 之后状态就变了。
+     */
+    fun saveProjectToLibrary(projectId: String, groupId: String?) {
+        val alreadySaved = prefs.projects().firstOrNull { it.id == projectId }?.saved == true
+        prefs.updateProjects {
+            ProjectLibrary.saveTo(it, projectId, groupId, System.currentTimeMillis())
+        }
+        refreshLibrary()
+        message(if (alreadySaved) Strings.projectsMoved else Strings.projectsAdded)
+    }
+
+    /** 项目页「从项目库移除」：只取消收藏，最近打开记录保留，重新加入会回到原分组。 */
+    fun removeProjectFromLibrary(id: String) {
+        prefs.updateProjects { ProjectLibrary.removeFromLibrary(it, id) }
+        refreshLibrary()
+        message(Strings.projectsRemoved)
+    }
+
+    fun createGroup(name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        prefs.updateGroups { groups ->
+            groups + ProjectGroup(
+                id = "g-" + UUID.randomUUID().toString().take(8),
+                name = clean,
+                createdAt = System.currentTimeMillis(),
+            )
+        }
+        refreshLibrary()
+        message(Strings.projectsGroupCreated)
+    }
+
+    fun renameGroup(id: String, name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        prefs.updateGroups { groups ->
+            groups.map { if (it.id == id) it.copy(name = clean) else it }
+        }
+        refreshLibrary()
+        message(Strings.projectsGroupRenamed)
+    }
+
+    /** 删除分组只解散分组，组内项目回到「未分组」。 */
+    fun deleteGroup(id: String) {
+        prefs.deleteGroup(id)
+        refreshLibrary()
+        message(Strings.projectsGroupDeleted)
+    }
+
+    fun moveProject(projectId: String, groupId: String?) {
+        prefs.updateProjects { ProjectLibrary.moveTo(it, projectId, groupId) }
+        refreshLibrary()
+        message(Strings.projectsMoved)
+    }
+
+    /**
+     * 从项目页添加：解析链接并**联网校验**（仓库是否存在、分支是否存在），
+     * 成功后直接入库但不跳转；失败给出 404 / 网络等具体原因。
+     */
+    fun addProjectByLink(raw: String) {
+        val parsed = GitHubUrlParser.parse(raw.trim())
+        if (parsed == null) {
+            message(Strings.errorUnrecognizedLink)
+            return
+        }
+        val id = "github:${parsed.owner}/${parsed.repo}".lowercase()
+        viewModelScope.launch {
+            // 要联网校验仓库与分支，先给一句反馈，避免点了像没反应
+            message(Strings.projectsParsing)
+            try {
+                val info = api.repoInfo(parsed.owner, parsed.repo)
+                val (ref, _) = resolveTarget(parsed, info.defaultBranch)
+                val now = System.currentTimeMillis()
+                prefs.updateProjects { projects ->
+                    val alreadySaved = projects.firstOrNull { it.id == id }?.saved == true
+                    val merged = ProjectLibrary.upsert(
+                        projects,
+                        Project(
+                            id = id,
+                            type = Project.Type.GITHUB,
+                            title = parsed.repo,
+                            subtitle = "${parsed.owner}/${parsed.repo} · $ref",
+                            owner = parsed.owner,
+                            repo = parsed.repo,
+                            ref = ref,
+                            saved = true,
+                            openedAt = now,
+                            addedAt = now,
+                        ),
+                    )
+                    // 已在库里就保留原分组，只更新信息
+                    if (alreadySaved) merged else ProjectLibrary.saveTo(merged, id, null, now)
+                }
+                refreshLibrary()
+                message(Strings.projectsAdded)
+            } catch (e: Exception) {
+                message(e.friendlyMessage())
+            }
+        }
+    }
+
+    fun addProjectByFolder(uri: Uri) {
+        val context = getApplication<Application>()
+        viewModelScope.launch {
+            try {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+                val name = LocalCodeSource.displayName(context, uri)
+                val now = System.currentTimeMillis()
+                prefs.updateProjects { projects ->
+                    ProjectLibrary.saveTo(
+                        ProjectLibrary.upsert(
+                            projects,
+                            Project(
+                                id = "local:$uri",
+                                type = Project.Type.LOCAL,
+                                title = name,
+                                subtitle = Strings.commonLocalFolder,
+                                treeUri = uri.toString(),
+                                saved = true,
+                                openedAt = now,
+                                addedAt = now,
+                            ),
+                        ),
+                        id = "local:$uri",
+                        groupId = null,
+                        now = now,
+                    )
+                }
+                refreshLibrary()
+                message(Strings.projectsAdded)
+            } catch (e: Exception) {
+                message(e.friendlyMessage())
+            }
+        }
+    }
+
+    private fun message(text: String) {
+        viewModelScope.launch { _events.send(AppEvent.ShowMessage(text)) }
     }
 
     fun openLocalTree(uri: Uri, nameOverride: String? = null) {
@@ -189,17 +374,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     ?: LocalCodeSource.displayName(context, uri)
                 val source = LocalCodeSource(context, uri, name)
                 currentSource = source
-                prefs.addRecent(
-                    RecentSource(
+                addToLibrary(
+                    Project(
                         id = "local:$uri",
-                        type = RecentSource.Type.LOCAL,
+                        type = Project.Type.LOCAL,
                         title = name,
                         subtitle = Strings.commonLocalFolder,
                         treeUri = uri.toString(),
                         openedAt = System.currentTimeMillis(),
                     ),
                 )
-                _home.update { it.copy(recents = prefs.recentSources(), error = null, busy = false) }
+                _home.update { it.copy(error = null, busy = false) }
                 _browse.value = BrowseUiState(source = source, path = "")
                 loadDirectory("")
                 _events.send(AppEvent.OpenBrowser)

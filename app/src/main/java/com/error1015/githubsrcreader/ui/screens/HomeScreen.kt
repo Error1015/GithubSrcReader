@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +21,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,11 +34,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.error1015.githubsrcreader.R
-import com.error1015.githubsrcreader.data.model.RecentSource
+import com.error1015.githubsrcreader.data.model.Project
+import com.error1015.githubsrcreader.data.model.ProjectGroup
 import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.HomeUiState
 import com.error1015.githubsrcreader.ui.components.AppTitleHeader
 import com.error1015.githubsrcreader.ui.components.EmptyHint
+import com.error1015.githubsrcreader.ui.components.PopupAnchor
+import com.error1015.githubsrcreader.ui.components.PopupMenu
+import com.error1015.githubsrcreader.ui.components.PopupMenuItem
+import com.error1015.githubsrcreader.ui.components.ProjectRow
+import com.error1015.githubsrcreader.ui.components.anchorTo
+import com.error1015.githubsrcreader.ui.components.rememberAnchorHandle
 import com.error1015.githubsrcreader.ui.util.readClipboard
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -48,9 +59,8 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddFolder
 import top.yukonga.miuix.kmp.icon.extended.ChevronForward
-import top.yukonga.miuix.kmp.icon.extended.CloudFill
 import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.FolderFill
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -59,8 +69,11 @@ fun HomeScreen(
     onUrlChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onFolderPicked: (Uri) -> Unit,
-    onOpenRecent: (RecentSource) -> Unit,
-    onRemoveRecent: (String) -> Unit,
+    onOpenProject: (Project) -> Unit,
+    onToggleStar: (String) -> Unit,
+    onRemoveProject: (String) -> Unit,
+    onSaveToLibrary: (String, String?) -> Unit,
+    onRemoveFromLibrary: (String) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
@@ -185,15 +198,38 @@ fun HomeScreen(
                         subtitle = Strings.homeRecentEmptyDesc,
                     )
                 } else {
-                    state.recents.forEachIndexed { index, recent ->
+                    state.recents.forEachIndexed { index, project ->
                         if (index > 0) {
                             HorizontalDivider(modifier = Modifier.padding(start = 62.dp))
                         }
-                        RecentRow(
-                            recent = recent,
-                            onClick = { onOpenRecent(recent) },
-                            onRemove = { onRemoveRecent(recent.id) },
-                        )
+                        // key 隔开每一行：加入项目库的按钮要按行记住锚点
+                        key(project.id) {
+                            ProjectRow(
+                                project = project,
+                                onClick = { onOpenProject(project) },
+                                onToggleStar = { onToggleStar(project.id) },
+                                trailing = {
+                                    LibraryButton(
+                                        project = project,
+                                        groups = state.groups,
+                                        onSave = onSaveToLibrary,
+                                        onRemove = onRemoveFromLibrary,
+                                    )
+                                    IconButton(
+                                        onClick = { onRemoveProject(project.id) },
+                                        minWidth = 36.dp,
+                                        minHeight = 36.dp,
+                                    ) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Delete,
+                                            contentDescription = Strings.actionDeleteRecord,
+                                            tint = colors.onSurfaceVariantActions,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -209,56 +245,64 @@ fun HomeScreen(
     }
 }
 
+/**
+ * 「加入项目库」按钮：点开贴着按钮的菜单选分组。
+ * 已在库里时按钮变成实心文件夹，菜单里多一项「从项目库移除」。
+ */
 @Composable
-private fun RecentRow(
-    recent: RecentSource,
-    onClick: () -> Unit,
-    onRemove: () -> Unit,
+private fun LibraryButton(
+    project: Project,
+    groups: List<ProjectGroup>,
+    onSave: (String, String?) -> Unit,
+    onRemove: (String) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val handle = rememberAnchorHandle()
+    var menuAnchor by remember { mutableStateOf<PopupAnchor?>(null) }
+
+    IconButton(
+        onClick = { menuAnchor = handle.anchor },
+        modifier = Modifier.anchorTo(handle),
+        minWidth = 36.dp,
+        minHeight = 36.dp,
     ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(colors.tertiaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (recent.type == RecentSource.Type.GITHUB) MiuixIcons.CloudFill else MiuixIcons.Folder,
-                contentDescription = null,
-                tint = colors.onTertiaryContainer,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(10.dp))
-                .clickable(onClick = onClick)
-                .padding(vertical = 2.dp),
-        ) {
-            Text(text = recent.title, fontSize = 15.sp, maxLines = 1)
-            Text(
-                text = recent.subtitle,
-                fontSize = 11.sp,
-                color = colors.onSurfaceVariantSummary,
-                maxLines = 1,
-            )
-        }
-        IconButton(onClick = onRemove) {
-            Icon(
-                imageVector = MiuixIcons.Delete,
-                contentDescription = Strings.actionDeleteRecord,
-                tint = colors.onSurfaceVariantActions,
-                modifier = Modifier.size(18.dp),
-            )
-        }
+        Icon(
+            imageVector = if (project.saved) MiuixIcons.FolderFill else MiuixIcons.AddFolder,
+            contentDescription = if (project.saved) Strings.actionRemoveFromLibrary else Strings.projectsAddToLibrary,
+            tint = if (project.saved) colors.primary else colors.onSurfaceVariantActions,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+
+    menuAnchor?.let { anchor ->
+        PopupMenu(
+            anchor = anchor,
+            title = if (project.saved) Strings.projectsMoveTo else Strings.projectsAddToLibrary,
+            items = buildList {
+                if (project.saved) {
+                    add(
+                        PopupMenuItem(Strings.actionRemoveFromLibrary, destructive = true) {
+                            onRemove(project.id)
+                            menuAnchor = null
+                        },
+                    )
+                }
+                add(
+                    PopupMenuItem(Strings.projectsUngrouped) {
+                        onSave(project.id, null)
+                        menuAnchor = null
+                    },
+                )
+                groups.forEach { group ->
+                    add(
+                        PopupMenuItem(group.name) {
+                            onSave(project.id, group.id)
+                            menuAnchor = null
+                        },
+                    )
+                }
+            },
+            onDismiss = { menuAnchor = null },
+        )
     }
 }
