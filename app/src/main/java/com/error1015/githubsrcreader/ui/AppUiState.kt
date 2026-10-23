@@ -66,4 +66,7 @@ data class UsageUiState(
 sealed interface AppEvent {
     data object OpenBrowser : AppEvent
     data object OpenViewer : AppEvent
+
+    /** 需要把用户带回首页（例如分享进来的文本没有可解析链接，要在首页显示提示）。 */
+    data object ShowHome : AppEvent
 }

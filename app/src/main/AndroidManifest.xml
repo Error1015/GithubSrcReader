@@ -39,6 +39,15 @@
                 <data android:host="www.github.com" />
                 <data android:host="raw.githubusercontent.com" />
             </intent-filter>
+
+            <!-- 从其它应用“分享”文本过来时，可在分享面板里选择本应用 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
     </application>
 

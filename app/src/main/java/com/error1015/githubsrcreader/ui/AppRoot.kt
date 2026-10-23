@@ -58,6 +58,10 @@ fun AppRoot(viewModel: AppViewModel) {
             when (event) {
                 AppEvent.OpenBrowser -> navController.navigate(Routes.BROWSE) { launchSingleTop = true }
                 AppEvent.OpenViewer -> navController.navigate(Routes.VIEWER) { launchSingleTop = true }
+                AppEvent.ShowHome -> navController.navigate(Routes.HOME) {
+                    popUpTo(Routes.HOME) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }

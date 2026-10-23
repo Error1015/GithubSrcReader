@@ -9,6 +9,7 @@ import com.error1015.githubsrcreader.data.AppPreferences
 import com.error1015.githubsrcreader.data.github.GitHubApi
 import com.error1015.githubsrcreader.data.github.GitHubCodeSource
 import com.error1015.githubsrcreader.data.github.GitHubUrlParser
+import com.error1015.githubsrcreader.data.github.SharedLink
 import com.error1015.githubsrcreader.data.local.LocalCodeSource
 import com.error1015.githubsrcreader.data.model.CodeSource
 import com.error1015.githubsrcreader.data.model.FileEntry
@@ -123,6 +124,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _home.update { it.copy(busy = false, error = e.friendlyMessage()) }
             }
         }
+    }
+
+    /**
+     * 处理系统「分享」进来的文本：里面夹带的 GitHub 链接会被挑出来直接打开；
+     * 找不到就回到首页并给出提示，不会静默失败。
+     */
+    fun openSharedText(raw: String) {
+        val link = SharedLink.firstLink(raw)
+        if (link == null) {
+            _home.update {
+                it.copy(error = "分享的内容里没有可解析的 GitHub 链接", busy = false)
+            }
+            viewModelScope.launch { _events.send(AppEvent.ShowHome) }
+            return
+        }
+        openUrl(link)
     }
 
     fun openRecent(recent: RecentSource) {

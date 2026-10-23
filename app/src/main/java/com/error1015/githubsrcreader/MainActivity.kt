@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) {
-            handleViewIntent(intent)
+            handleIncomingIntent(intent)
         }
         setContent {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -55,15 +55,32 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleViewIntent(intent)
+        handleIncomingIntent(intent)
     }
 
-    /** 支持从其它应用直接“用 GithubSrcReader 打开” GitHub 链接。 */
-    private fun handleViewIntent(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_VIEW) return
-        val url = intent.dataString ?: return
-        if (GitHubUrlParser.parse(url) != null) {
-            viewModel.openUrl(url)
+    /**
+     * 两种外部入口：
+     * - ACTION_VIEW：在别的应用里“用 GithubSrcReader 打开” GitHub 链接；
+     * - ACTION_SEND：在分享面板里把文本 / 链接分享过来（浏览器地址栏、聊天记录、Markdown 等）。
+     */
+    private fun handleIncomingIntent(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_VIEW -> {
+                val url = intent.dataString ?: return
+                if (GitHubUrlParser.parse(url) != null) {
+                    viewModel.openUrl(url)
+                }
+            }
+
+            Intent.ACTION_SEND -> {
+                if (intent.type?.startsWith("text/") != true) return
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                    ?: intent.getStringExtra(Intent.EXTRA_SUBJECT)
+                    ?: return
+                if (text.isNotBlank()) {
+                    viewModel.openSharedText(text)
+                }
+            }
         }
     }
 }
