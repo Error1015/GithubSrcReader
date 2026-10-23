@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.error1015.githubsrcreader.data.model.FileContent
 import com.error1015.githubsrcreader.data.model.Loadable
+import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.ViewerUiState
 import com.error1015.githubsrcreader.ui.code.CodeBlock
 import com.error1015.githubsrcreader.ui.components.AppIcons
@@ -56,13 +57,13 @@ fun ViewerScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(colors.surface)) {
         SmallTopAppBar(
-            title = state.fileName.ifBlank { "阅读" },
+            title = state.fileName.ifBlank { Strings.viewerDefaultTitle },
             subtitle = state.path,
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = MiuixIcons.Back,
-                        contentDescription = "返回",
+                        contentDescription = Strings.actionBack,
                         tint = colors.onSurface,
                         modifier = Modifier.size(22.dp),
                     )
@@ -79,7 +80,7 @@ fun ViewerScreen(
                     } else {
                         Icon(
                             imageVector = AppIcons.Download,
-                            contentDescription = "保存到下载目录",
+                            contentDescription = Strings.viewerSaveToDownloads,
                             tint = colors.onSurface,
                             modifier = Modifier.size(19.dp),
                         )
@@ -88,7 +89,7 @@ fun ViewerScreen(
                 IconButton(onClick = { onFindUsages("") }, minWidth = 36.dp) {
                     Icon(
                         imageVector = MiuixIcons.Search,
-                        contentDescription = "查找引用",
+                        contentDescription = Strings.viewerFindUsages,
                         tint = colors.onSurface,
                         modifier = Modifier.size(19.dp),
                     )
@@ -97,7 +98,7 @@ fun ViewerScreen(
                     IconButton(onClick = { onCopy(content.value.text) }, minWidth = 36.dp) {
                         Icon(
                             imageVector = MiuixIcons.Copy,
-                            contentDescription = "复制全文",
+                            contentDescription = Strings.actionCopyAll,
                             tint = colors.onSurface,
                             modifier = Modifier.size(19.dp),
                         )
@@ -106,7 +107,7 @@ fun ViewerScreen(
                 IconButton(onClick = onToggleLineNumbers, minWidth = 36.dp) {
                     Icon(
                         imageVector = MiuixIcons.ListView,
-                        contentDescription = "行号",
+                        contentDescription = Strings.viewerLineNumbers,
                         tint = if (showLineNumbers) colors.primary else colors.onSurfaceVariantActions,
                         modifier = Modifier.size(19.dp),
                     )
@@ -114,7 +115,7 @@ fun ViewerScreen(
                 IconButton(onClick = onReload, minWidth = 36.dp) {
                     Icon(
                         imageVector = MiuixIcons.Refresh,
-                        contentDescription = "重新加载",
+                        contentDescription = Strings.actionReload,
                         tint = colors.onSurface,
                         modifier = Modifier.size(19.dp),
                     )
@@ -132,11 +133,11 @@ fun ViewerScreen(
             is Loadable.Failure -> {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     EmptyHint(
-                        title = "无法打开该文件",
+                        title = Strings.viewerOpenFailed,
                         subtitle = content.message,
                         action = {
                             Button(onClick = onReload, colors = ButtonDefaults.buttonColorsPrimary()) {
-                                Text(text = "重试", fontSize = 14.sp)
+                                Text(text = Strings.actionRetry, fontSize = 14.sp)
                             }
                         },
                     )
@@ -185,13 +186,13 @@ private fun FileMeta(file: FileContent, targetLine: Int?) {
         ) {
             Text(text = file.language.displayName, fontSize = 10.sp, color = colors.onTertiaryContainer)
         }
-        Text(text = "$lineCount 行", fontSize = 11.sp, color = colors.onSurfaceVariantSummary)
+        Text(text = Strings.viewerLineCount(lineCount), fontSize = 11.sp, color = colors.onSurfaceVariantSummary)
         if (file.sizeBytes > 0) {
             Text(text = formatSize(file.sizeBytes), fontSize = 11.sp, color = colors.onSurfaceVariantSummary)
         }
         if (targetLine != null) {
             Text(
-                text = "第 $targetLine 行",
+                text = Strings.viewerTargetLine(targetLine),
                 fontSize = 11.sp,
                 color = colors.primary,
                 maxLines = 1,
@@ -199,7 +200,7 @@ private fun FileMeta(file: FileContent, targetLine: Int?) {
         }
         if (file.truncated) {
             Text(
-                text = "内容过长，已截断",
+                text = Strings.viewerTruncated,
                 fontSize = 11.sp,
                 color = colors.error,
                 maxLines = 1,

@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.sp
 import com.error1015.githubsrcreader.BuildConfig
 import com.error1015.githubsrcreader.R
 import com.error1015.githubsrcreader.data.model.ThemeMode
+import com.error1015.githubsrcreader.i18n.AppLanguage
+import com.error1015.githubsrcreader.i18n.Strings
+import com.error1015.githubsrcreader.i18n.label
 import com.error1015.githubsrcreader.ui.SettingsUiState
 import com.error1015.githubsrcreader.ui.components.AppTitleHeader
 import top.yukonga.miuix.kmp.basic.Button
@@ -52,6 +55,7 @@ fun SettingsScreen(
     onClearToken: () -> Unit,
     onToggleLineNumbers: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
 
@@ -71,7 +75,7 @@ fun SettingsScreen(
     ) {
         AppTitleHeader(
             title = stringResource(R.string.app_name),
-            subtitle = "设置 · 外观、访问令牌与阅读偏好",
+            subtitle = Strings.settingsSubtitle,
             modifier = Modifier.padding(start = 24.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
         )
         Column(
@@ -80,7 +84,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 132.dp),
         ) {
-            SmallTitle("外观")
+            SmallTitle(Strings.settingsAppearance)
             Card(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 cornerRadius = 20.dp,
@@ -107,7 +111,34 @@ fun SettingsScreen(
                 }
             }
 
-            SmallTitle("阅读")
+            SmallTitle(Strings.settingsLanguage)
+            Card(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                cornerRadius = 20.dp,
+                insideMargin = PaddingValues(6.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    AppLanguage.entries.forEach { language ->
+                        val selected = state.language == language
+                        Button(
+                            onClick = { onLanguageChange(language) },
+                            modifier = Modifier.weight(1f),
+                            colors = if (selected) {
+                                ButtonDefaults.buttonColorsPrimary()
+                            } else {
+                                ButtonDefaults.buttonColors()
+                            },
+                        ) {
+                            Text(text = language.label, fontSize = 13.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+
+            SmallTitle(Strings.settingsReading)
             Card(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 cornerRadius = 20.dp,
@@ -120,9 +151,9 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = "显示行号", fontSize = 15.sp)
+                        Text(text = Strings.settingsShowLineNumbers, fontSize = 15.sp)
                         Text(
-                            text = "代码左侧显示行号列",
+                            text = Strings.settingsShowLineNumbersDesc,
                             fontSize = 11.sp,
                             color = colors.onSurfaceVariantSummary,
                         )
@@ -134,14 +165,14 @@ fun SettingsScreen(
                 }
             }
 
-            SmallTitle("GitHub 访问令牌")
+            SmallTitle(Strings.settingsTokenSection)
             Card(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 cornerRadius = 20.dp,
                 insideMargin = PaddingValues(18.dp),
             ) {
                 Text(
-                    text = "填入 Personal Access Token 后，接口速率上限从 60 次/小时提升到 5000 次/小时。",
+                    text = Strings.settingsTokenDesc,
                     fontSize = 12.sp,
                     color = colors.onSurfaceSecondary,
                 )
@@ -151,12 +182,12 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "当前状态",
+                        text = Strings.settingsTokenStatus,
                         fontSize = 14.sp,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        text = if (state.hasToken) "已保存 · 密文存储" else "未设置",
+                        text = if (state.hasToken) Strings.settingsTokenSaved else Strings.settingsTokenUnset,
                         fontSize = 12.sp,
                         color = if (state.hasToken) colors.primary else colors.onSurfaceVariantSummary,
                     )
@@ -168,7 +199,11 @@ fun SettingsScreen(
                         field = updated
                         onTokenChange(updated.text)
                     },
-                    label = if (state.hasToken) "输入新令牌以替换" else "ghp_xxxxxxxx",
+                    label = if (state.hasToken) {
+                        Strings.settingsTokenReplace
+                    } else {
+                        Strings.settingsTokenPlaceholder
+                    },
                     useLabelAsPlaceholder = true,
                     singleLine = true,
                     // 输入过程也按密码处理：掩码显示、关闭输入法联想
@@ -183,14 +218,14 @@ fun SettingsScreen(
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text(text = "保存", fontSize = 14.sp)
+                        Text(text = Strings.actionSave, fontSize = 14.sp)
                     }
                     Button(
                         onClick = onClearToken,
                         enabled = state.hasToken,
                         colors = ButtonDefaults.buttonColors(),
                     ) {
-                        Text(text = "清除", fontSize = 14.sp)
+                        Text(text = Strings.actionClear, fontSize = 14.sp)
                     }
                 }
                 state.message?.let { message ->
@@ -203,23 +238,26 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "令牌由系统 Keystore 的 AES-256-GCM 密钥加密后保存，落盘只有密文；界面永不回显已保存的令牌。",
+                    text = Strings.settingsTokenSecurity,
                     fontSize = 11.sp,
                     color = colors.onSurfaceVariantSummary,
                 )
             }
 
-            SmallTitle("关于")
+            SmallTitle(Strings.settingsAbout)
             Card(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 cornerRadius = 20.dp,
                 insideMargin = PaddingValues(0.dp),
             ) {
-                AboutRow("应用", stringResource(R.string.app_name))
+                AboutRow(Strings.settingsAboutApp, stringResource(R.string.app_name))
                 HorizontalDivider(modifier = Modifier.padding(start = 18.dp))
-                AboutRow("版本", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                AboutRow(
+                    Strings.settingsAboutVersion,
+                    "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                )
                 HorizontalDivider(modifier = Modifier.padding(start = 18.dp))
-                AboutRow("界面", "Miuix")
+                AboutRow(Strings.settingsAboutUi, "Miuix")
             }
         }
     }

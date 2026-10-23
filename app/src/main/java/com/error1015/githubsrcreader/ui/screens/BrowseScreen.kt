@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.error1015.githubsrcreader.data.model.FileEntry
 import com.error1015.githubsrcreader.data.model.Loadable
+import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.BrowseUiState
 import com.error1015.githubsrcreader.ui.components.EmptyHint
 import com.error1015.githubsrcreader.ui.components.FileRow
@@ -64,13 +65,13 @@ fun BrowseScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         SmallTopAppBar(
-            title = source?.title ?: "浏览",
-            subtitle = source?.subtitle ?: "还没有打开任何来源",
+            title = source?.title ?: Strings.browseDefaultTitle,
+            subtitle = source?.subtitle ?: Strings.browseNoSource,
             navigationIcon = {
                 IconButton(onClick = { if (!onNavigateUp()) onBack() }) {
                     Icon(
                         imageVector = MiuixIcons.Back,
-                        contentDescription = "返回",
+                        contentDescription = Strings.actionBack,
                         tint = colors.onSurface,
                         modifier = Modifier.size(22.dp),
                     )
@@ -81,7 +82,7 @@ fun BrowseScreen(
                     IconButton(onClick = onReload) {
                         Icon(
                             imageVector = MiuixIcons.Refresh,
-                            contentDescription = "刷新",
+                            contentDescription = Strings.browseRefresh,
                             tint = colors.onSurface,
                             modifier = Modifier.size(20.dp),
                         )
@@ -114,7 +115,7 @@ fun BrowseScreen(
 
                 is Loadable.Failure -> {
                     EmptyHint(
-                        title = "加载失败",
+                        title = Strings.commonLoadFailed,
                         subtitle = entries.message,
                         modifier = Modifier.align(Alignment.Center),
                         action = {
@@ -122,7 +123,7 @@ fun BrowseScreen(
                                 onClick = onReload,
                                 colors = ButtonDefaults.buttonColorsPrimary(),
                             ) {
-                                Text(text = "重试", fontSize = 14.sp)
+                                Text(text = Strings.actionRetry, fontSize = 14.sp)
                             }
                         },
                     )
@@ -131,8 +132,8 @@ fun BrowseScreen(
                 is Loadable.Success -> {
                     if (entries.value.isEmpty()) {
                         EmptyHint(
-                            title = "这个文件夹是空的",
-                            subtitle = "换一个目录看看",
+                            title = Strings.browseEmptyDirTitle,
+                            subtitle = Strings.browseEmptyDirDesc,
                             modifier = Modifier.align(Alignment.Center),
                         )
                     } else {
@@ -158,11 +159,11 @@ fun BrowseScreen(
 private fun CardEmpty(onGoHome: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         EmptyHint(
-            title = "还没有打开任何仓库",
-            subtitle = "先回到首页解析一个 GitHub 链接，或选择本地文件夹",
+            title = Strings.browseNoRepoTitle,
+            subtitle = Strings.browseNoRepoDesc,
             action = {
                 Button(onClick = onGoHome, colors = ButtonDefaults.buttonColorsPrimary()) {
-                    Text(text = "去首页", fontSize = 14.sp)
+                    Text(text = Strings.actionGoHome, fontSize = 14.sp)
                 }
             },
         )
@@ -182,7 +183,7 @@ private fun Breadcrumb(path: String, onGotoPath: (String) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(
-            text = "根目录",
+            text = Strings.commonRoot,
             fontSize = 12.sp,
             color = if (segments.isEmpty()) colors.primary else colors.onSurfaceVariantSummary,
             modifier = Modifier

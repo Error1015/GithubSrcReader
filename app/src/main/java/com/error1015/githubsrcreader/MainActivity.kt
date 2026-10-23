@@ -12,17 +12,25 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.error1015.githubsrcreader.data.AppPreferences
 import com.error1015.githubsrcreader.data.github.GitHubUrlParser
 import com.error1015.githubsrcreader.data.model.ThemeMode
+import com.error1015.githubsrcreader.i18n.AppLanguage
+import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.AppRoot
 import com.error1015.githubsrcreader.ui.AppViewModel
 import com.error1015.githubsrcreader.ui.theme.GithubSrcReaderTheme
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: AppViewModel by viewModels()
 
+    private val prefs by lazy { AppPreferences(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 先把语言准备好，后面的界面文案（含 ViewModel 里的错误提示）才是正确语言
+        Strings.apply(AppLanguage.resolve(prefs.language, Locale.getDefault()))
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) {

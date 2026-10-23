@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.error1015.githubsrcreader.i18n.label
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -31,11 +32,11 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 底部导航的三个分区。 */
-enum class AppTab(val route: String, val label: String, val icon: ImageVector) {
-    Home("home", "首页", MiuixIcons.Home),
-    Browse("browse", "浏览", MiuixIcons.Folder),
-    Settings("settings", "设置", MiuixIcons.Settings),
+/** 底部导航的三个分区（显示名称见 `i18n/Labels.kt`）。 */
+enum class AppTab(val route: String, val icon: ImageVector) {
+    Home("home", MiuixIcons.Home),
+    Browse("browse", MiuixIcons.Folder),
+    Settings("settings", MiuixIcons.Settings),
 }
 
 /** 悬浮底栏的外层圆角。 */

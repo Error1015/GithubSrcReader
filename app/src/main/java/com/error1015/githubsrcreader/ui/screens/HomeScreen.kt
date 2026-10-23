@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.error1015.githubsrcreader.R
 import com.error1015.githubsrcreader.data.model.RecentSource
+import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.HomeUiState
 import com.error1015.githubsrcreader.ui.components.AppTitleHeader
 import com.error1015.githubsrcreader.ui.components.EmptyHint
@@ -81,7 +82,7 @@ fun HomeScreen(
         ) {
             AppTitleHeader(
                 title = stringResource(R.string.app_name),
-                subtitle = "解析 GitHub 链接，或打开本地文件夹阅读代码",
+                subtitle = Strings.homeTagline,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
             )
 
@@ -90,7 +91,7 @@ fun HomeScreen(
                 insideMargin = PaddingValues(18.dp),
             ) {
                 Text(
-                    text = "GitHub 链接",
+                    text = Strings.homeGithubLink,
                     fontSize = 13.sp,
                     color = colors.onSurfaceSecondary,
                 )
@@ -113,7 +114,7 @@ fun HomeScreen(
                         onClick = { context.readClipboard()?.let(onUrlChange) },
                         colors = ButtonDefaults.buttonColors(),
                     ) {
-                        Text(text = "粘贴", fontSize = 14.sp)
+                        Text(text = Strings.actionPaste, fontSize = 14.sp)
                     }
                     Button(
                         onClick = onSubmit,
@@ -121,12 +122,12 @@ fun HomeScreen(
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text(text = if (state.busy) "解析中…" else "打开", fontSize = 14.sp)
+                        Text(text = if (state.busy) Strings.homeParsing else Strings.actionOpen, fontSize = 14.sp)
                     }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "支持仓库 / 分支 / 目录 / 文件链接，也可直接输入 owner/repo",
+                    text = Strings.homeLinkHint,
                     fontSize = 11.sp,
                     color = colors.onSurfaceVariantSummary,
                 )
@@ -156,9 +157,9 @@ fun HomeScreen(
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = "打开本地文件夹", fontSize = 15.sp)
+                        Text(text = Strings.homeOpenFolder, fontSize = 15.sp)
                         Text(
-                            text = "通过系统文件选择器授权读取",
+                            text = Strings.homeOpenFolderDesc,
                             fontSize = 11.sp,
                             color = colors.onSurfaceVariantSummary,
                         )
@@ -172,7 +173,7 @@ fun HomeScreen(
                 }
             }
 
-            SmallTitle("最近打开")
+            SmallTitle(Strings.homeRecent)
 
             Card(
                 cornerRadius = 20.dp,
@@ -180,8 +181,8 @@ fun HomeScreen(
             ) {
                 if (state.recents.isEmpty()) {
                     EmptyHint(
-                        title = "还没有打开过任何仓库",
-                        subtitle = "从上面的链接或本地文件夹开始",
+                        title = Strings.homeRecentEmptyTitle,
+                        subtitle = Strings.homeRecentEmptyDesc,
                     )
                 } else {
                     state.recents.forEachIndexed { index, recent ->
@@ -199,7 +200,7 @@ fun HomeScreen(
 
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "提示：在设置中填入 GitHub Token 可提高 API 请求上限",
+                text = Strings.homeTokenHint,
                 fontSize = 11.sp,
                 color = colors.onSurfaceVariantSummary,
                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -254,7 +255,7 @@ private fun RecentRow(
         IconButton(onClick = onRemove) {
             Icon(
                 imageVector = MiuixIcons.Delete,
-                contentDescription = "删除记录",
+                contentDescription = Strings.actionDeleteRecord,
                 tint = colors.onSurfaceVariantActions,
                 modifier = Modifier.size(18.dp),
             )

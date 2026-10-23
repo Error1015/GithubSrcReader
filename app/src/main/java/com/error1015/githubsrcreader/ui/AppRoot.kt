@@ -1,5 +1,6 @@
 package com.error1015.githubsrcreader.ui
 
+import android.app.Activity
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -19,6 +20,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.error1015.githubsrcreader.ui.components.AppBottomBar
 import com.error1015.githubsrcreader.ui.components.AppTab
+import com.error1015.githubsrcreader.i18n.AppLanguage
+import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.screens.BrowseScreen
 import com.error1015.githubsrcreader.ui.screens.HomeScreen
 import com.error1015.githubsrcreader.ui.screens.SettingsScreen
@@ -73,7 +76,7 @@ fun AppRoot(viewModel: AppViewModel) {
                     }
                     val opened = runCatching { context.startActivity(view) }.isSuccess
                     if (!opened) {
-                        Toast.makeText(context, "没有能打开该文件的应用", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, Strings.commonNoAppToOpen, Toast.LENGTH_SHORT).show()
                     }
                 }
 
@@ -140,7 +143,7 @@ fun AppRoot(viewModel: AppViewModel) {
             composable(Routes.USAGES) {
                 UsagesScreen(
                     state = usage,
-                    subtitle = viewer.fileName.ifBlank { browse.source?.title ?: "当前来源" },
+                    subtitle = viewer.fileName.ifBlank { browse.source?.title ?: Strings.commonCurrentSource },
                     onBack = { navController.popBackStack() },
                     onQueryChange = viewModel::onUsageQueryChange,
                     onSearch = viewModel::runUsageSearch,
@@ -163,6 +166,11 @@ fun AppRoot(viewModel: AppViewModel) {
                     onClearToken = viewModel::clearToken,
                     onToggleLineNumbers = viewModel::setShowLineNumbers,
                     onThemeModeChange = viewModel::setThemeMode,
+                    onLanguageChange = { language ->
+                        viewModel.setLanguage(language)
+                        // 文案来自全局文案表，重建一次让整棵树重新取词
+                        (context as? Activity)?.recreate()
+                    },
                 )
             }
         }

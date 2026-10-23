@@ -1,5 +1,7 @@
 package com.error1015.githubsrcreader.ui.components
 
+import com.error1015.githubsrcreader.i18n.Strings
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,7 +56,7 @@ fun FileRow(
                 overflow = TextOverflow.Ellipsis,
                 color = colors.onSurface,
             )
-            val hint = if (entry.isDirectory) "文件夹" else formatSize(entry.size)
+            val hint = if (entry.isDirectory) Strings.commonFolder else formatSize(entry.size)
             Text(
                 text = hint,
                 fontSize = 11.sp,

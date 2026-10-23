@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.error1015.githubsrcreader.data.model.Loadable
 import com.error1015.githubsrcreader.data.model.UsageHit
+import com.error1015.githubsrcreader.i18n.Strings
+import com.error1015.githubsrcreader.i18n.label
 import com.error1015.githubsrcreader.ui.UsageScope
 import com.error1015.githubsrcreader.ui.UsageUiState
 import com.error1015.githubsrcreader.ui.components.EmptyHint
@@ -66,13 +68,13 @@ fun UsagesScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(colors.surface)) {
         SmallTopAppBar(
-            title = "查找引用",
+            title = Strings.usagesTitle,
             subtitle = subtitle,
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = MiuixIcons.Back,
-                        contentDescription = "返回",
+                        contentDescription = Strings.actionBack,
                         tint = colors.onSurface,
                         modifier = Modifier.size(22.dp),
                     )
@@ -89,7 +91,7 @@ fun UsagesScreen(
                 TextField(
                     value = state.query,
                     onValueChange = onQueryChange,
-                    label = "类名 / 方法名 / 字段名",
+                    label = Strings.usagesQueryLabel,
                     useLabelAsPlaceholder = true,
                     singleLine = true,
                     modifier = Modifier.weight(1f),
@@ -99,7 +101,7 @@ fun UsagesScreen(
                     onClick = onSearch,
                     colors = ButtonDefaults.buttonColorsPrimary(),
                 ) {
-                    Text(text = "搜索", fontSize = 13.sp)
+                    Text(text = Strings.actionSearch, fontSize = 13.sp)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -127,7 +129,7 @@ fun UsagesScreen(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "提示：阅读页双击标识符可直接查找引用",
+                text = Strings.usagesTip,
                 fontSize = 11.sp,
                 color = colors.onSurfaceVariantSummary,
             )
@@ -148,8 +150,8 @@ fun UsagesScreen(
             if (state.query.isBlank()) {
                 if (state.symbols.isEmpty()) {
                     EmptyHint(
-                        title = "输入类名 / 方法名 / 字段名",
-                        subtitle = "也可以回到代码里双击标识符直接查找引用",
+                        title = Strings.usagesIdleTitle,
+                        subtitle = Strings.usagesIdleDesc,
                         modifier = Modifier.align(Alignment.Center),
                     )
                 } else {
@@ -159,7 +161,7 @@ fun UsagesScreen(
                     ) {
                         item {
                             Text(
-                                text = "本文件符号 · 点击即可查找引用",
+                                text = Strings.usagesSymbolsTitle,
                                 fontSize = 11.sp,
                                 color = colors.onSurfaceVariantSummary,
                                 modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 6.dp),
@@ -179,8 +181,8 @@ fun UsagesScreen(
                 when (val results = state.results) {
                     is Loadable.Idle -> {
                         EmptyHint(
-                            title = "点「搜索」开始查找",
-                            subtitle = "当前范围：${state.scope.label}",
+                            title = Strings.usagesStartTitle,
+                            subtitle = Strings.usagesScope + state.scope.label,
                             modifier = Modifier.align(Alignment.Center),
                         )
                     }
@@ -191,7 +193,7 @@ fun UsagesScreen(
                                 CircularProgressIndicator()
                                 state.progress?.let {
                                     Spacer(Modifier.height(10.dp))
-                                    Text(text = "已扫描 $it", fontSize = 11.sp, color = colors.onSurfaceVariantSummary)
+                                    Text(text = Strings.usagesScanned(it), fontSize = 11.sp, color = colors.onSurfaceVariantSummary)
                                 }
                             }
                         }
@@ -200,7 +202,7 @@ fun UsagesScreen(
                     is Loadable.Failure -> {
                         val blocked = state.hint != null
                         EmptyHint(
-                            title = if (blocked) "全仓库搜索暂不可用" else "搜索失败",
+                            title = if (blocked) Strings.usagesBlockedTitle else Strings.usagesFailedTitle,
                             subtitle = state.hint ?: results.message,
                             modifier = Modifier.align(Alignment.Center),
                             action = if (blocked) {
@@ -208,7 +210,7 @@ fun UsagesScreen(
                             } else {
                                 {
                                     Button(onClick = onSearch, colors = ButtonDefaults.buttonColorsPrimary()) {
-                                        Text(text = "重试", fontSize = 14.sp)
+                                        Text(text = Strings.actionRetry, fontSize = 14.sp)
                                     }
                                 }
                             },
@@ -219,8 +221,8 @@ fun UsagesScreen(
                         val hits = results.value
                         if (hits.isEmpty()) {
                             EmptyHint(
-                                title = "没有找到「${state.query}」的引用",
-                                subtitle = "试试切换到「整个来源」，或检查拼写",
+                                title = Strings.usagesNotFound(state.query),
+                                subtitle = Strings.usagesNotFoundDesc,
                                 modifier = Modifier.align(Alignment.Center),
                             )
                         } else {
@@ -276,7 +278,7 @@ private fun PathHeader(path: String, count: Int) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Text(text = "$count 处", fontSize = 11.sp, color = colors.onSurfaceVariantActions)
+        Text(text = Strings.usagesHitCount(count), fontSize = 11.sp, color = colors.onSurfaceVariantActions)
     }
 }
 
@@ -330,7 +332,7 @@ private fun UsageRow(
                 .padding(horizontal = 6.dp, vertical = 2.dp),
         ) {
             Text(
-                text = if (hit.isDeclaration) "声明" else "引用",
+                text = if (hit.isDeclaration) Strings.usagesDeclaration else Strings.usagesReference,
                 fontSize = 10.sp,
                 color = if (hit.isDeclaration) colors.primary else colors.onSurfaceContainerVariant,
             )

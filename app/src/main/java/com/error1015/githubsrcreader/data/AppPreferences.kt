@@ -3,6 +3,7 @@ package com.error1015.githubsrcreader.data
 import android.content.Context
 import com.error1015.githubsrcreader.data.model.RecentSource
 import com.error1015.githubsrcreader.data.model.ThemeMode
+import com.error1015.githubsrcreader.i18n.AppLanguage
 import com.error1015.githubsrcreader.data.security.SecretVault
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,6 +33,10 @@ class AppPreferences(context: Context) {
     var showLineNumbers: Boolean
         get() = prefs.getBoolean(KEY_LINE_NUMBERS, true)
         set(value) = prefs.edit().putBoolean(KEY_LINE_NUMBERS, value).apply()
+
+    var language: AppLanguage
+        get() = AppLanguage.fromName(prefs.getString(KEY_LANGUAGE, null))
+        set(value) = prefs.edit().putString(KEY_LANGUAGE, value.name).apply()
 
     var themeMode: ThemeMode
         get() {
@@ -135,6 +140,7 @@ class AppPreferences(context: Context) {
         private const val KEY_RECENTS = "recents"
         private const val KEY_LINE_NUMBERS = "line_numbers"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_LANGUAGE = "language"
         private const val MAX_RECENTS = 12
     }
 }
