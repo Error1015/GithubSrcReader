@@ -17,11 +17,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -49,6 +47,9 @@ private const val MaxZoom = 3.0f
 /**
  * 只读代码视图：行号 + 双向滚动 + 语法着色，支持长按选择复制、双指缩放；
  * [targetLine] 用于从「查找引用」跳转后定位，[onWordDoubleTap] 双击标识符回调。
+ *
+ * 缩放比例由调用方持有（[zoom] / [onZoomChange]）：刷新内容时组合不重建，缩放自然保留；
+ * 退出预览后状态随屏幕销毁，下次进入回到 1f。
  */
 @Composable
 fun CodeBlock(
@@ -57,13 +58,12 @@ fun CodeBlock(
     modifier: Modifier = Modifier,
     showLineNumbers: Boolean = true,
     targetLine: Int? = null,
+    zoom: Float = 1f,
+    onZoomChange: (Float) -> Unit = {},
     onWordDoubleTap: ((String) -> Unit)? = null,
 ) {
     val colors = LocalCodeColors.current
     val density = LocalDensity.current
-
-    // 缩放比例跨文件保留（同一段会话内手感一致），并支持旋转恢复
-    var zoom by rememberSaveable { mutableFloatStateOf(1f) }
 
     val codeStyle = remember(zoom) {
         TextStyle(
@@ -113,8 +113,10 @@ fun CodeBlock(
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentZoom = rememberUpdatedState(zoom)
 
-    // 跳转定位：滚到目标行上方两行处，保留上下文；缩放后重新换算
-    LaunchedEffect(text, targetLine, lineHeightPx) {
+    // 跳转定位：滚到目标行上方两行处，保留上下文。
+    // 这里**不**把 lineHeightPx 当 key：缩放时重跑会把视图拽回顶部/目标行，手感很差；
+    // 换文件或指定新行号时才重新定位，用的还是当前缩放下的行高。
+    LaunchedEffect(text, targetLine) {
         val offset = if (targetLine != null && targetLine > 0) {
             ((targetLine - 1) * lineHeightPx - lineHeightPx * 2f).coerceAtLeast(0f)
         } else {
@@ -138,7 +140,7 @@ fun CodeBlock(
                             val zoomChange = event.calculateZoom()
                             if (zoomChange.isFinite() && zoomChange > 0f && zoomChange != 1f) {
                                 val next = (currentZoom.value * zoomChange).coerceIn(MinZoom, MaxZoom)
-                                if (next != zoom) zoom = next
+                                if (next != currentZoom.value) onZoomChange(next)
                             }
                             // 消费掉多指事件，避免内层同时滚动造成抖动
                             event.changes.forEach { it.consume() }

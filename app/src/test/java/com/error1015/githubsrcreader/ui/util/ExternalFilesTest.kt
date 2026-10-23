@@ -33,4 +33,28 @@ class ExternalFilesTest {
         assertEquals("image/heic", ExternalFiles.mimeTypeOf("a.heif"))
         assertEquals("image/*", ExternalFiles.mimeTypeOf("a.bin"))
     }
+
+    /** 只认系统表：能查到就用查到的，查不到必须回退 octet-stream，否则系统会给文件名补扩展名。 */
+    private val systemMime: (String) -> String? = { ext ->
+        when (ext) {
+            "txt" -> "text/plain"
+            "md" -> "text/markdown"
+            "png" -> "image/png"
+            else -> null
+        }
+    }
+
+    @Test
+    fun `save mime follows the system table`() {
+        assertEquals("text/plain", ExternalFiles.mimeForSave("notes.txt", systemMime))
+        assertEquals("text/markdown", ExternalFiles.mimeForSave("README.md", systemMime))
+        assertEquals("image/png", ExternalFiles.mimeForSave("logo.PNG", systemMime))
+    }
+
+    @Test
+    fun `unknown extensions fall back so the original name survives`() {
+        assertEquals("application/octet-stream", ExternalFiles.mimeForSave("Main.kt", systemMime))
+        assertEquals("application/octet-stream", ExternalFiles.mimeForSave("build.gradle.kts", systemMime))
+        assertEquals("application/octet-stream", ExternalFiles.mimeForSave("Dockerfile", systemMime))
+    }
 }

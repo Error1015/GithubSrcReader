@@ -2,6 +2,7 @@ package com.error1015.githubsrcreader.ui.util
 
 import android.content.Context
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
 import java.io.File
 
@@ -18,14 +19,8 @@ object ExternalFiles {
     private val IMAGE_EXTENSIONS =
         setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif", "avif")
 
-    /** 下载保存时按文本处理的扩展名（代码、配置、文档）。 */
-    private val TEXT_EXTENSIONS = setOf(
-        "txt", "md", "markdown", "json", "xml", "yaml", "yml", "toml", "ini", "conf",
-        "properties", "gradle", "kts", "kt", "java", "py", "js", "mjs", "ts", "tsx", "jsx",
-        "c", "h", "cpp", "hpp", "cc", "cs", "go", "rs", "rb", "php", "swift", "dart", "lua",
-        "sh", "bash", "bat", "ps1", "sql", "html", "htm", "css", "scss", "vue", "svelte",
-        "pro", "gitignore", "editorconfig", "cmake", "dockerfile",
-    )
+    /** 系统 MimeTypeMap 认不出扩展名时的兜底类型（也是 MediaStore 下载集合的默认类型）。 */
+    private const val FALLBACK_MIME = "application/octet-stream"
 
     fun isImage(fileName: String): Boolean = extensionOf(fileName) in IMAGE_EXTENSIONS
 
@@ -40,17 +35,24 @@ object ExternalFiles {
         else -> "image/*"
     }
 
-    /** 保存到下载目录时使用的 MIME，避免全落成 application/octet-stream。 */
-    fun mimeForSave(fileName: String): String {
+    /**
+     * 保存到下载目录时使用的 MIME。
+     *
+     * 必须返回「系统 MimeTypeMap 为这个扩展名认可的 MIME」：MediaProvider 在插入时会把
+     * MIME 反推成规范扩展名（AOSP `FileUtils.splitFileName`），一旦它和文件名里的扩展名对不上
+     * 就直接追加，于是 `Main.kt` 配上 `text/plain` 会存成 `Main.kt.txt`。
+     * 系统不认识的扩展名（kt/kts/gradle…）一律回退 [FALLBACK_MIME]，此时 MediaProvider
+     * 认为扩展名未知，会原样保留文件名。
+     *
+     * @param mimeLookup 扩展名 → MIME 的查询函数，默认查系统表，测试时可替换
+     */
+    fun mimeForSave(
+        fileName: String,
+        mimeLookup: (String) -> String? = { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) },
+    ): String {
         val ext = extensionOf(fileName)
-        return when {
-            ext in IMAGE_EXTENSIONS -> mimeTypeOf(fileName)
-            ext in TEXT_EXTENSIONS -> "text/plain"
-            ext == "pdf" -> "application/pdf"
-            ext == "zip" -> "application/zip"
-            ext == "apk" -> "application/vnd.android.package-archive"
-            else -> "application/octet-stream"
-        }
+        if (ext.isEmpty()) return FALLBACK_MIME
+        return mimeLookup(ext) ?: FALLBACK_MIME
     }
 
     /**

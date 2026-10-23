@@ -9,7 +9,10 @@
 - 数据层统一实现 `CodeSource` 接口（`list(path)` / `readText(path)`），新增来源（Gitee、GitLab、压缩包等）沿用该抽象。
 - 敏感数据（GitHub Token 等）必须经 `data/security/SecretVault`（Keystore AES-GCM）密文落盘，禁止写明文；UI 只显示「是否已配置」，不回显令牌。
 - 源码着色走 `CodeTokenizer`（纯 Kotlin，可单测），不要在 Composable 里做正则扫描。
-- 保存文件到公共目录统一走 `data/download/FileDownloader`（MediaStore.Downloads），不要直接写 `/storage/emulated/0/Download`；图片等二进制交给系统查看器时走 `ui/util/ExternalFiles` + FileProvider。
+- 保存文件到公共目录统一走 `data/download/FileDownloader`（MediaStore.Downloads），不要直接写 `/storage/emulated/0/Download`；图片等二进制交给系统查看器时走 `ui/util/ExternalFiles` + FileProvider。保存时的 MIME **必须**由 `ExternalFiles.mimeForSave` 按系统 `MimeTypeMap` 推导（查不到回退 `application/octet-stream`），直接给 `text/plain` 会让 MediaProvider 把 `Main.kt` 存成 `Main.kt.txt`。
+- 顶栏（`SmallTopAppBar`）的 `subtitle` 是裸 `Text`，没有行数/省略号约束，宽度还被限制在标题区，**长文本不要放 subtitle**（会换行撑高工具栏），改放 `bottomContent` 自己控制单行省略。
+- 预览页的缩放比例由 `ViewerScreen` 持有（`remember(state.path)`），`CodeBlock` 是受控组件（`zoom` / `onZoomChange`）：刷新保留缩放，离开或换文件重置。不要把缩放藏回 `CodeBlock` 内部，否则刷新时组合被替换就丢了。
+- 横屏 / 分屏走紧凑布局：`LocalConfiguration.screenHeightDp < 480` 时省掉路径行与 `FileMeta`、收紧代码区 padding；`CodeBlock` 的定位 `LaunchedEffect` 不要拿行高当 key（缩放会把视图拽回顶部）。
 - 界面文案**不许**在代码里写中文字面量：键在 `i18n/Keys.kt`，各语言值在 `i18n/texts/*Texts.kt`，调用统一用 `Strings.xxx`；新增文案要同时在所有语言表里补值（`StringsTest` 会校验键集合一致）。新增语言 = AppLanguage 枚举 + 新表文件 + `Strings.tables` 登记，调用点不动。
 - 应用图标由 `design/icon/gen_icon.py` 生成（`</>` 字形 + 深蓝渐变）；自适应前景是矢量 `drawable/ic_launcher_foreground.xml`，改字形时脚本与矢量两处同步。
 - release 签名读根目录 `keystore.properties`（已 gitignore），密钥库 `keystore/githubsrcreader.jks`。

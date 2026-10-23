@@ -1,7 +1,9 @@
 package com.error1015.githubsrcreader.data.download
 
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.provider.MediaStore
 import com.error1015.githubsrcreader.data.model.SourceException
 import com.error1015.githubsrcreader.i18n.Strings
@@ -35,7 +37,6 @@ object FileDownloader {
         bytes: ByteArray,
     ): String = withContext(Dispatchers.IO) {
         val relativeDir = relativeDirectory(folder, path)
-        val shownPath = "Download/$relativeDir$displayName"
 
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, displayName)
@@ -62,8 +63,16 @@ object FileDownloader {
             throw if (e is SourceException) e else SourceException(Strings.downloadFailed(e.message ?: Strings.commonUnknownError), e)
         }
 
-        shownPath
+        // 系统可能改写文件名（例如按 MIME 补扩展名），提示里用落盘后的真实名字
+        "Download/$relativeDir${resolver.displayNameOf(uri) ?: displayName}"
     }
+
+    /** 读取落盘后的真实文件名；查询失败时返回 null，由调用方回退。 */
+    private fun ContentResolver.displayNameOf(uri: Uri): String? = runCatching {
+        query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+    }.getOrNull()
 
     /**
      * 计算相对 Download/ 的目录（末尾带 `/`），拆出来便于单测。
