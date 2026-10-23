@@ -1,5 +1,7 @@
 package com.error1015.githubsrcreader.ui
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +24,7 @@ import com.error1015.githubsrcreader.ui.screens.HomeScreen
 import com.error1015.githubsrcreader.ui.screens.SettingsScreen
 import com.error1015.githubsrcreader.ui.screens.UsagesScreen
 import com.error1015.githubsrcreader.ui.screens.ViewerScreen
+import com.error1015.githubsrcreader.ui.util.ExternalFiles
 import com.error1015.githubsrcreader.ui.util.copyToClipboard
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -62,6 +65,20 @@ fun AppRoot(viewModel: AppViewModel) {
                     popUpTo(Routes.HOME) { inclusive = true }
                     launchSingleTop = true
                 }
+
+                is AppEvent.OpenExternal -> {
+                    val view = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(event.uri, event.mimeType)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    val opened = runCatching { context.startActivity(view) }.isSuccess
+                    if (!opened) {
+                        Toast.makeText(context, "没有能打开该文件的应用", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                is AppEvent.ShowMessage ->
+                    Toast.makeText(context, event.text, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -89,11 +106,14 @@ fun AppRoot(viewModel: AppViewModel) {
                     onBack = { navController.popBackStack() },
                     onReload = viewModel::reloadDirectory,
                     onOpenEntry = { entry ->
-                        if (entry.isDirectory) {
-                            viewModel.openDirectory(entry)
-                        } else {
-                            viewModel.openFile(entry)
-                            navController.navigate(Routes.VIEWER) { launchSingleTop = true }
+                        when {
+                            entry.isDirectory -> viewModel.openDirectory(entry)
+                            // 图片不按文本打开，交给系统查看器
+                            ExternalFiles.isImage(entry.name) -> viewModel.openExternalFile(entry)
+                            else -> {
+                                viewModel.openFile(entry)
+                                navController.navigate(Routes.VIEWER) { launchSingleTop = true }
+                            }
                         }
                     },
                     onGotoPath = viewModel::loadDirectory,
@@ -114,6 +134,7 @@ fun AppRoot(viewModel: AppViewModel) {
                     onToggleLineNumbers = { viewModel.setShowLineNumbers(!settings.showLineNumbers) },
                     onCopy = { context.copyToClipboard(it) },
                     onFindUsages = openUsages,
+                    onDownload = viewModel::downloadCurrentFile,
                 )
             }
             composable(Routes.USAGES) {

@@ -9,6 +9,7 @@ import com.error1015.githubsrcreader.data.model.UsageHit
 import com.error1015.githubsrcreader.data.model.sortedForDisplay
 import com.error1015.githubsrcreader.data.search.ReferenceSearch
 import com.error1015.githubsrcreader.data.stripBom
+import com.error1015.githubsrcreader.i18n.Strings
 
 /** GitHub 云端仓库来源。 */
 class GitHubCodeSource(
@@ -21,13 +22,16 @@ class GitHubCodeSource(
     override val title: String = repo
     override val subtitle: String = "$owner/$repo · $ref"
 
+    /** 不同仓库下载到同一目录会互相覆盖，所以带上 owner。 */
+    override val downloadFolder: String = "$owner-$repo"
+
     override val supportsRepositorySearch: Boolean get() = api.hasToken()
 
     override val repositorySearchHint: String?
         get() = if (api.hasToken()) {
             null
         } else {
-            "全仓库搜索依赖 GitHub 代码搜索接口，需要先在设置里填入 Token"
+            Strings.hintSearchNeedsToken
         }
 
     override suspend fun list(path: String): List<FileEntry> =
@@ -45,6 +49,8 @@ class GitHubCodeSource(
             sizeBytes = raw.length.toLong(),
         )
     }
+
+    override suspend fun readBytes(path: String): ByteArray = api.fileBytes(owner, repo, path, ref)
 
     /**
      * 全仓库搜索：先用 /search/code 拿到命中文件，再逐个抓取文件内容定位到具体行，

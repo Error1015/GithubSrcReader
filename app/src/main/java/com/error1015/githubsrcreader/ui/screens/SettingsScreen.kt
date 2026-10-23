@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.error1015.githubsrcreader.BuildConfig
 import com.error1015.githubsrcreader.R
 import com.error1015.githubsrcreader.data.model.ThemeMode
 import com.error1015.githubsrcreader.ui.SettingsUiState
@@ -216,9 +217,9 @@ fun SettingsScreen(
             ) {
                 AboutRow("应用", stringResource(R.string.app_name))
                 HorizontalDivider(modifier = Modifier.padding(start = 18.dp))
-                AboutRow("版本", "1.0")
+                AboutRow("版本", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
                 HorizontalDivider(modifier = Modifier.padding(start = 18.dp))
-                AboutRow("界面", "Miuix · 澎湃风格")
+                AboutRow("界面", "Miuix")
             }
         }
     }

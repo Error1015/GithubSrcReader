@@ -57,6 +57,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // 生成 BuildConfig，界面里的版本号等常量从 Gradle 配置读取，避免写死
+        buildConfig = true
     }
 }
 

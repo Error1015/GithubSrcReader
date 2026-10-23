@@ -14,6 +14,7 @@ import com.error1015.githubsrcreader.data.model.UsageHit
 import com.error1015.githubsrcreader.data.model.sortedForDisplay
 import com.error1015.githubsrcreader.data.search.ReferenceSearch
 import com.error1015.githubsrcreader.data.stripBom
+import com.error1015.githubsrcreader.i18n.Strings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -29,7 +30,7 @@ class LocalCodeSource(
     override val title: String,
 ) : CodeSource {
 
-    override val subtitle: String = "本地文件夹"
+    override val subtitle: String = Strings.commonLocalFolder
 
     override val supportsRepositorySearch: Boolean = true
 
@@ -38,11 +39,11 @@ class LocalCodeSource(
     private val root: DocumentFile? by lazy { DocumentFile.fromTreeUri(context, treeUri) }
 
     override suspend fun list(path: String): List<FileEntry> = withContext(Dispatchers.IO) {
-        val directory = resolve(path) ?: throw SourceException("无法访问该文件夹，可能已失去读取权限")
-        if (!directory.isDirectory) throw SourceException("该路径不是文件夹")
+        val directory = resolve(path) ?: throw SourceException(Strings.errorFolderPermission)
+        if (!directory.isDirectory) throw SourceException(Strings.errorNotFolder)
         directory.listFiles()
             .map { file ->
-                val name = file.name ?: "(未命名)"
+                val name = file.name ?: Strings.errorUnnamed
                 FileEntry(
                     name = name,
                     path = joinPath(path, name),
@@ -54,10 +55,10 @@ class LocalCodeSource(
     }
 
     override suspend fun readText(path: String): FileContent = withContext(Dispatchers.IO) {
-        val file = resolve(path) ?: throw SourceException("文件不存在或已被移动")
-        if (file.isDirectory) throw SourceException("这是一个文件夹")
+        val file = resolve(path) ?: throw SourceException(Strings.errorFileMissing)
+        if (file.isDirectory) throw SourceException(Strings.errorIsFolder)
         val text = readFileText(file, TextReader.MAX_BYTES)
-            ?: throw SourceException("无法读取该文件，或它是二进制文件")
+            ?: throw SourceException(Strings.errorBinaryFile)
         val trimmed = TextReader.trimLines(text)
         FileContent(
             path = path,
@@ -66,6 +67,20 @@ class LocalCodeSource(
             truncated = trimmed.truncated || file.length() > TextReader.MAX_BYTES,
             sizeBytes = file.length(),
         )
+    }
+
+    override suspend fun directUri(path: String): Uri? = withContext(Dispatchers.IO) {
+        val file = resolve(path) ?: return@withContext null
+        if (file.isDirectory) null else file.uri
+    }
+
+    override suspend fun readBytes(path: String): ByteArray? = withContext(Dispatchers.IO) {
+        val file = resolve(path) ?: return@withContext null
+        if (file.isDirectory) return@withContext null
+        if (file.length() > MAX_BINARY_BYTES) {
+            throw SourceException(Strings.errorFileTooLarge)
+        }
+        context.contentResolver.openInputStream(file.uri)?.use { it.readBytes() }
     }
 
     /**
@@ -136,6 +151,7 @@ class LocalCodeSource(
 
     companion object {
         private const val MAX_SEARCH_FILES = 600
+        private const val MAX_BINARY_BYTES = 32L * 1024 * 1024
         private const val MAX_SEARCH_BYTES = 300_000
 
         private val IGNORED_DIRS = setOf(
@@ -153,7 +169,7 @@ class LocalCodeSource(
             if (!fromDocument.isNullOrBlank()) return fromDocument
             val fromFile = DocumentFile.fromTreeUri(context, uri)?.name
             if (!fromFile.isNullOrBlank()) return fromFile
-            return uri.lastPathSegment?.substringAfterLast('/').orEmpty().ifBlank { "本地文件夹" }
+            return uri.lastPathSegment?.substringAfterLast('/').orEmpty().ifBlank { Strings.commonLocalFolder }
         }
     }
 }

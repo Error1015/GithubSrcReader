@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 只暴露缓存目录下 external/ 里的临时文件，用于把图片交给系统查看器 -->
+<paths>
+    <cache-path
+        name="external"
+        path="external/" />
+</paths>

@@ -3,6 +3,7 @@ package com.error1015.githubsrcreader.data.github
 import com.error1015.githubsrcreader.data.model.FileEntry
 import com.error1015.githubsrcreader.data.model.RepoInfo
 import com.error1015.githubsrcreader.data.model.SourceException
+import com.error1015.githubsrcreader.i18n.Strings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -145,25 +146,52 @@ class GitHubApi(private val tokenProvider: () -> String?) {
                     body
                 }
             } catch (e: IOException) {
-                throw SourceException("网络请求失败，请检查网络连接", e)
+                throw SourceException(Strings.errorNetworkFailed, e)
+            }
+        }
+
+    /** 直接下载文件原始字节（图片等二进制内容）。 */
+    suspend fun fileBytes(owner: String, repo: String, path: String, ref: String?): ByteArray =
+        fetchBytes(urlOf("repos", owner, repo, "contents", path, ref = ref))
+
+    private suspend fun fetchBytes(url: HttpUrl, accept: String = RAW_ACCEPT): ByteArray =
+        withContext(Dispatchers.IO) {
+            try {
+                client.newCall(request(url, accept)).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw errorFor(
+                            response.code,
+                            response.body?.string().orEmpty(),
+                            response.header("X-RateLimit-Remaining"),
+                        )
+                    }
+                    val body = response.body ?: throw SourceException(Strings.errorEmptyBody)
+                    if (body.contentLength() > MAX_BINARY_BYTES) {
+                        throw SourceException(Strings.errorFileTooLarge)
+                    }
+                    body.bytes()
+                }
+            } catch (e: IOException) {
+                throw SourceException(Strings.errorNetworkFailed, e)
             }
         }
 
     private fun errorFor(code: Int, body: String, rateRemaining: String?): SourceException {
         val message = runCatching { JSONObject(body).optString("message") }.getOrNull().orEmpty()
         return when {
-            code == 401 -> SourceException("Token 无效或已过期，请在设置中重新填写")
+            code == 401 -> SourceException(Strings.apiBadToken)
             code == 403 && rateRemaining == "0" ->
-                SourceException("GitHub API 请求次数已用尽，请稍后重试或在设置中填入 Token")
-            code == 403 -> SourceException("没有权限访问该资源（403）")
-            code == 404 -> SourceException("仓库或路径不存在（404）")
-            code >= 500 -> SourceException("GitHub 服务异常（$code），请稍后重试")
-            else -> SourceException("GitHub 返回错误（$code）" + if (message.isNotBlank()) "：$message" else "")
+                SourceException(Strings.apiRateLimited)
+            code == 403 -> SourceException(Strings.apiForbidden)
+            code == 404 -> SourceException(Strings.apiNotFound)
+            code >= 500 -> SourceException(Strings.apiServerError(code))
+            else -> SourceException(Strings.apiError(code, message))
         }
     }
 
     companion object {
         private const val JSON_ACCEPT = "application/vnd.github+json"
         private const val RAW_ACCEPT = "application/vnd.github.raw"
+        private const val MAX_BINARY_BYTES = 32L * 1024 * 1024
     }
 }

@@ -1,5 +1,6 @@
 package com.error1015.githubsrcreader.ui
 
+import android.net.Uri
 import com.error1015.githubsrcreader.data.model.CodeSource
 import com.error1015.githubsrcreader.data.model.FileContent
 import com.error1015.githubsrcreader.data.model.FileEntry
@@ -7,6 +8,7 @@ import com.error1015.githubsrcreader.data.model.Loadable
 import com.error1015.githubsrcreader.data.model.RecentSource
 import com.error1015.githubsrcreader.data.model.RepoInfo
 import com.error1015.githubsrcreader.data.model.ThemeMode
+import com.error1015.githubsrcreader.i18n.AppLanguage
 import com.error1015.githubsrcreader.data.model.UsageHit
 import com.error1015.githubsrcreader.ui.code.CodeToken
 
@@ -32,6 +34,8 @@ data class ViewerUiState(
     val tokens: List<CodeToken> = emptyList(),
     /** 从「查找引用」跳转过来时需要滚动到的行号。 */
     val targetLine: Int? = null,
+    /** 正在把当前文件保存到下载目录。 */
+    val downloading: Boolean = false,
 ) {
     val text: String? get() = (content as? Loadable.Success)?.value?.text
 }
@@ -43,14 +47,15 @@ data class SettingsUiState(
     val hasToken: Boolean = false,
     val showLineNumbers: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val language: AppLanguage = AppLanguage.SYSTEM,
     val saved: Boolean = false,
     val message: String? = null,
 )
 
-/** 引用搜索范围。 */
-enum class UsageScope(val label: String) {
-    FILE("当前文件"),
-    SOURCE("整个来源"),
+/** 引用搜索范围（显示名称见 `i18n/Labels.kt`）。 */
+enum class UsageScope {
+    FILE,
+    SOURCE,
 }
 
 data class UsageUiState(
@@ -69,4 +74,10 @@ sealed interface AppEvent {
 
     /** 需要把用户带回首页（例如分享进来的文本没有可解析链接，要在首页显示提示）。 */
     data object ShowHome : AppEvent
+
+    /** 交给系统应用打开（图片等二进制文件）。 */
+    data class OpenExternal(val uri: Uri, val mimeType: String) : AppEvent
+
+    /** 轻量提示，用系统 Toast 呈现。 */
+    data class ShowMessage(val text: String) : AppEvent
 }

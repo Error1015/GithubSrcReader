@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.error1015.githubsrcreader.data.AppPreferences
+import com.error1015.githubsrcreader.data.download.FileDownloader
 import com.error1015.githubsrcreader.data.github.GitHubApi
 import com.error1015.githubsrcreader.data.github.GitHubCodeSource
 import com.error1015.githubsrcreader.data.github.GitHubUrlParser
@@ -20,7 +21,10 @@ import com.error1015.githubsrcreader.data.model.Language
 import com.error1015.githubsrcreader.data.model.ThemeMode
 import com.error1015.githubsrcreader.data.model.UsageHit
 import com.error1015.githubsrcreader.data.search.ReferenceSearch
+import com.error1015.githubsrcreader.i18n.AppLanguage
+import com.error1015.githubsrcreader.i18n.Strings
 import com.error1015.githubsrcreader.ui.code.CodeTokenizer
+import com.error1015.githubsrcreader.ui.util.ExternalFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -53,6 +57,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _settings = MutableStateFlow(
         SettingsUiState(
             hasToken = prefs.hasToken,
+            language = prefs.language,
             showLineNumbers = prefs.showLineNumbers,
             themeMode = prefs.themeMode,
         ),
@@ -78,12 +83,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun openUrl(raw: String) {
         val text = raw.trim()
         if (text.isEmpty()) {
-            _home.update { it.copy(error = "请输入 GitHub 链接") }
+            _home.update { it.copy(error = Strings.errorEnterLink) }
             return
         }
         val parsed = GitHubUrlParser.parse(text)
         if (parsed == null) {
-            _home.update { it.copy(error = "无法识别该链接，支持 github.com/owner/repo 或直接输入 owner/repo") }
+            _home.update { it.copy(error = Strings.errorUnrecognizedLink) }
             return
         }
 
@@ -134,7 +139,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val link = SharedLink.firstLink(raw)
         if (link == null) {
             _home.update {
-                it.copy(error = "分享的内容里没有可解析的 GitHub 链接", busy = false)
+                it.copy(error = Strings.errorSharedWithoutLink, busy = false)
             }
             viewModelScope.launch { _events.send(AppEvent.ShowHome) }
             return
@@ -148,7 +153,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val owner = recent.owner
                 val repo = recent.repo
                 if (owner.isNullOrBlank() || repo.isNullOrBlank()) {
-                    _home.update { it.copy(error = "该记录已失效，请重新输入链接") }
+                    _home.update { it.copy(error = Strings.errorRecentInvalid) }
                     return
                 }
                 openUrl("https://github.com/$owner/$repo")
@@ -157,7 +162,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             RecentSource.Type.LOCAL -> {
                 val uri = recent.treeUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
                 if (uri == null) {
-                    _home.update { it.copy(error = "该文件夹记录已失效，请重新选择") }
+                    _home.update { it.copy(error = Strings.errorFolderInvalid) }
                     return
                 }
                 openLocalTree(uri, recent.title)
@@ -189,7 +194,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         id = "local:$uri",
                         type = RecentSource.Type.LOCAL,
                         title = name,
-                        subtitle = "本地文件夹",
+                        subtitle = Strings.commonLocalFolder,
                         treeUri = uri.toString(),
                         openedAt = System.currentTimeMillis(),
                     ),
@@ -268,6 +273,67 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 打开图片等非文本文件：不读成文本，直接交给系统图片查看器。
+     * 本地文件用 SAF Uri 直达；远程文件先下载到缓存再通过 FileProvider 暴露。
+     */
+    fun openExternalFile(entry: FileEntry) {
+        val source = currentSource ?: return
+        viewModelScope.launch {
+            try {
+                val mime = ExternalFiles.mimeTypeOf(entry.name)
+                source.directUri(entry.path)?.let { uri ->
+                    _events.send(AppEvent.OpenExternal(uri, mime))
+                    return@launch
+                }
+                _events.send(AppEvent.ShowMessage(Strings.messageLoading(entry.name)))
+                val bytes = source.readBytes(entry.path)
+                    ?: throw SourceException(Strings.errorReadFile)
+                val uri = withContext(Dispatchers.IO) {
+                    ExternalFiles.writeCache(getApplication<Application>(), entry.name, bytes)
+                }
+                _events.send(AppEvent.OpenExternal(uri, mime))
+            } catch (e: Exception) {
+                _events.send(AppEvent.ShowMessage(e.friendlyMessage()))
+            }
+        }
+    }
+
+    /**
+     * 把当前文件保存到公共下载目录 Download/Github Src Reader/<来源>/<原路径>。
+     * 走 MediaStore，不需要存储权限；文本文件也取原始字节，避免保存到被截断的预览内容。
+     */
+    fun downloadCurrentFile() {
+        val source = currentSource ?: return
+        val state = _viewer.value
+        val path = state.path
+        if (path.isBlank() || state.downloading) return
+
+        viewModelScope.launch {
+            _viewer.update { it.copy(downloading = true) }
+            try {
+                val bytes = source.readBytes(path)
+                    ?: (_viewer.value.text?.toByteArray() ?: throw SourceException(Strings.errorReadFile))
+                val name = path.substringAfterLast('/')
+                val savedTo = withContext(Dispatchers.IO) {
+                    FileDownloader.save(
+                        context = getApplication<Application>(),
+                        folder = source.downloadFolder,
+                        path = path,
+                        displayName = name,
+                        mimeType = ExternalFiles.mimeForSave(name),
+                        bytes = bytes,
+                    )
+                }
+                _events.send(AppEvent.ShowMessage(Strings.messageSavedTo(savedTo)))
+            } catch (e: Exception) {
+                _events.send(AppEvent.ShowMessage(e.friendlyMessage()))
+            } finally {
+                _viewer.update { it.copy(downloading = false) }
+            }
+        }
+    }
+
     fun reloadFile() {
         val state = _viewer.value
         if (state.path.isNotBlank()) openFile(state.path, state.fileName, state.targetLine)
@@ -322,7 +388,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (state.scope == UsageScope.FILE) {
             val content = (_viewer.value.content as? Loadable.Success)?.value
             if (content == null) {
-                _usage.update { it.copy(results = Loadable.Failure("还没有打开任何文件")) }
+                _usage.update { it.copy(results = Loadable.Failure(Strings.errorNoFileOpen)) }
                 return
             }
             _usage.update { it.copy(results = Loadable.Loading, hint = null) }
@@ -337,13 +403,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val source = currentSource
         if (source == null) {
-            _usage.update { it.copy(results = Loadable.Failure("还没有打开任何来源")) }
+            _usage.update { it.copy(results = Loadable.Failure(Strings.errorNoSourceOpen)) }
             return
         }
         if (!source.supportsRepositorySearch) {
             _usage.update {
                 it.copy(
-                    results = Loadable.Failure(source.repositorySearchHint ?: "当前来源不支持跨文件搜索"),
+                    results = Loadable.Failure(source.repositorySearchHint ?: Strings.hintNoCrossFileSearch),
                     hint = source.repositorySearchHint,
                 )
             }
@@ -383,7 +449,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun saveToken() {
         val draft = _settings.value.tokenDraft.trim()
         if (draft.isEmpty()) {
-            _settings.update { it.copy(saved = false, message = "请先输入 GitHub Token") }
+            _settings.update { it.copy(saved = false, message = Strings.messageTokenRequired) }
             return
         }
         prefs.token = draft
@@ -393,7 +459,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 tokenDraft = "",
                 hasToken = stored,
                 saved = stored,
-                message = if (stored) "已加密保存到本机" else "保存失败，请稍后重试",
+                message = if (stored) Strings.messageTokenSaved else Strings.messageTokenSaveFailed,
             )
         }
     }
@@ -401,13 +467,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun clearToken() {
         prefs.token = ""
         _settings.update {
-            it.copy(tokenDraft = "", hasToken = false, saved = true, message = "已清除令牌")
+            it.copy(tokenDraft = "", hasToken = false, saved = true, message = Strings.messageTokenCleared)
         }
     }
 
     fun setShowLineNumbers(enabled: Boolean) {
         prefs.showLineNumbers = enabled
         _settings.update { it.copy(showLineNumbers = enabled) }
+    }
+
+    /** 切换语言：写入偏好后由界面重建 Activity 生效。 */
+    fun setLanguage(value: AppLanguage) {
+        prefs.language = value
+        _settings.update { it.copy(language = value) }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -435,11 +507,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun Throwable.friendlyMessage(): String = when (this) {
-        is SourceException -> message ?: "加载失败"
-        is UnknownHostException -> "无法连接网络，请检查网络设置"
-        is SocketTimeoutException -> "请求超时，请稍后重试"
-        is IOException -> "网络异常，请稍后重试"
-        else -> message ?: "未知错误"
+        is SourceException -> message ?: Strings.commonLoadFailed
+        is UnknownHostException -> Strings.errorNoNetwork
+        is SocketTimeoutException -> Strings.errorTimeout
+        is IOException -> Strings.errorNetwork
+        else -> message ?: Strings.commonUnknownError
     }
 
     companion object {

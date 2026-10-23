@@ -22,6 +22,7 @@ import com.error1015.githubsrcreader.data.model.FileContent
 import com.error1015.githubsrcreader.data.model.Loadable
 import com.error1015.githubsrcreader.ui.ViewerUiState
 import com.error1015.githubsrcreader.ui.code.CodeBlock
+import com.error1015.githubsrcreader.ui.components.AppIcons
 import com.error1015.githubsrcreader.ui.components.EmptyHint
 import com.error1015.githubsrcreader.ui.components.formatSize
 import top.yukonga.miuix.kmp.basic.Button
@@ -48,6 +49,7 @@ fun ViewerScreen(
     onToggleLineNumbers: () -> Unit,
     onCopy: (String) -> Unit,
     onFindUsages: (String) -> Unit,
+    onDownload: () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     val content = state.content
@@ -67,6 +69,22 @@ fun ViewerScreen(
                 }
             },
             actions = {
+                IconButton(
+                    onClick = onDownload,
+                    enabled = !state.downloading,
+                    minWidth = 36.dp,
+                ) {
+                    if (state.downloading) {
+                        CircularProgressIndicator(size = 18.dp)
+                    } else {
+                        Icon(
+                            imageVector = AppIcons.Download,
+                            contentDescription = "保存到下载目录",
+                            tint = colors.onSurface,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                }
                 IconButton(onClick = { onFindUsages("") }, minWidth = 36.dp) {
                     Icon(
                         imageVector = MiuixIcons.Search,
